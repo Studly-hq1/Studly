@@ -1,0 +1,1814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://js.stripe.com/v3/"></script>
+<style>
+  :root{
+    --bg:#FFFFFF; --line:#E6E4DE; --ink:#1C1A16; --ink-soft:#6B6860;
+    --card:#FFFFFF; --accent:#A85C2E; --green:#2E6B4F; --red:#8B2E2E; --gold:#B08B2E;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'Inter', sans-serif; min-height:100vh; }
+  h1,h2,h3{font-family:'Inter', sans-serif; margin:0;}
+  button, input, select{font-family:'Inter', sans-serif;}
+  .wrap{max-width:640px; margin:0 auto; padding:0 18px 100px;}
+  .card-shadow{ box-shadow:0 1px 2px rgba(20,18,12,.04), 0 4px 16px rgba(20,18,12,.05); }
+
+  @keyframes fadeSlideIn{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes popIn{ from{opacity:0; transform:scale(.92);} to{opacity:1; transform:scale(1);} }
+  @keyframes pulse{ 0%{transform:scale(1);} 40%{transform:scale(1.35);} 100%{transform:scale(1);} }
+  @keyframes heartBreak{ 0%{transform:scale(1) rotate(0);} 35%{transform:scale(1.3) rotate(-10deg);} 100%{transform:scale(.7) rotate(8deg); opacity:.3;} }
+  @keyframes dotBlink{0%,100%{opacity:.2;}50%{opacity:1;}}
+  @keyframes overlayFade{ from{opacity:0;} to{opacity:1;} }
+
+  .animate-in{ animation:fadeSlideIn .32s ease both; }
+  .pop{ animation:popIn .22s ease both; }
+  * { transition: border-color .15s ease, background-color .15s ease, opacity .2s ease, color .15s ease; }
+
+  /* ---------- TOP BAR ---------- */
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding:16px 0 10px; gap:10px; }
+  .brand{ font-weight:800; font-size:17px; letter-spacing:-0.02em; }
+  .right-cluster{ display:flex; align-items:center; gap:10px; }
+  .avatar-btn{
+    width:34px; height:34px; border-radius:50%; border:1.5px solid var(--ink);
+    background:var(--card); font-size:15px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex:0 0 auto;
+  }
+  .status-pills{ display:flex; align-items:center; gap:8px; }
+  .pill{
+    font-size:12.5px; font-weight:500; display:flex; align-items:center; gap:4px;
+    background:var(--card); border:1px solid var(--line); padding:5px 9px; border-radius:999px;
+  }
+  .heart{ display:inline-block; }
+  .heart.hit{ animation:heartBreak .4s ease both; }
+  .streak.bump{ animation:pulse .4s ease; }
+  .lang-btn{
+    font-size:12px; font-weight:500; background:var(--card); border:1px solid var(--line);
+    color:var(--ink); padding:7px 9px; cursor:pointer; flex:0 0 auto; border-radius:999px;
+  }
+  .lang-btn:hover{border-color:var(--ink);}
+  .lang-menu{
+    position:absolute; top:52px; right:18px; z-index:30; background:var(--card); border:1px solid var(--line); display:none; min-width:150px;
+    border-radius:12px; overflow:hidden;
+  }
+  .lang-menu.show{display:block; animation:popIn .16s ease both;}
+  .lang-opt{ display:block; width:100%; text-align:left; background:none; border:none; font-size:13.5px; color:var(--ink); padding:9px 13px; cursor:pointer; }
+  .lang-opt:hover{background:#F2F1EC;}
+  .lang-opt.active{color:var(--accent); font-weight:600;}
+
+  /* ---------- BOTTOM NAV (docked bottom-right) ---------- */
+  .bottomnav{
+    position:fixed; bottom:0; left:0; z-index:25;
+    display:flex; justify-content:flex-start;
+    padding:0 0 20px 0;
+    pointer-events:none;
+  }
+  .navgroup{
+    display:flex; flex-direction:column; gap:6px; background:var(--card); border:1px solid var(--line); border-radius:26px;
+    padding:8px; pointer-events:auto; box-shadow:0 6px 20px rgba(20,18,12,.10); transition:gap .25s ease;
+  }
+  .navgroup.collapsed{ gap:0; }
+  .navbtn{
+    background:none; border:none; cursor:pointer; padding:13px 16px;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    color:var(--ink-soft); font-size:10.5px; font-weight:500; border-radius:18px;
+    max-height:70px; overflow:hidden; transition:max-height .25s ease, opacity .2s ease, padding .25s ease;
+  }
+  .navgroup.collapsed .navbtn{ max-height:0; opacity:0; padding-top:0; padding-bottom:0; pointer-events:none; }
+  .navbtn .ic{font-size:23px;}
+  .navbtn.active{ color:#fff; background:var(--accent); }
+  .nav-toggle{
+    background:none; border:none; cursor:pointer; color:var(--ink-soft); font-size:16px; font-weight:700;
+    padding:10px; display:flex; align-items:center; justify-content:center; border-radius:18px;
+  }
+  .nav-toggle:hover{ background:#F2F1EC; color:var(--ink); }
+
+  .tabpanel{display:none;}
+  .tabpanel.show{display:block;}
+
+  /* ---------- ONBOARDING ---------- */
+  #onboardScreen{ padding-top:14px; }
+  .logo{ font-weight:800; font-size:26px; letter-spacing:-0.03em; margin-bottom:4px; }
+  .avatar-grid{ display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 18px; }
+  .avatar-pick{
+    width:44px; height:44px; border-radius:50%; border:2px solid var(--line); background:var(--card);
+    font-size:19px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .avatar-pick.sel{ border-color:var(--accent); background:#A85C2E14; }
+  .field, .select-field{ width:100%; border:1px solid var(--line); background:var(--card); padding:12px 13px; font-size:15px; color:var(--ink); margin-bottom:10px; border-radius:12px; }
+  .field:focus, .select-field:focus{ outline:1px solid var(--accent); }
+  .hint{ font-size:12px; color:var(--ink-soft); margin:-2px 0 8px; }
+  .auth-error{ font-size:12.5px; color:var(--red); margin:-2px 0 10px; font-weight:500; }
+  .toggle-row{ display:flex; gap:8px; margin-bottom:10px; }
+  .toggle-btn{
+    flex:1; border:1px solid var(--line); background:var(--card); padding:10px; border-radius:12px;
+    font-size:13px; font-weight:500; color:var(--ink-soft); cursor:pointer;
+  }
+  .toggle-btn.sel{ border-color:var(--accent); color:var(--accent); background:#A85C2E0f; font-weight:600; }
+  .primary-btn{
+    font-size:13px; font-weight:600; background:var(--ink); color:var(--bg);
+    border:none; padding:12px 20px; cursor:pointer; border-radius:12px;
+  }
+  .primary-btn:hover{opacity:.85;}
+  .primary-btn:active{transform:scale(.97);}
+  .primary-btn:disabled{opacity:.4; cursor:default;}
+
+  /* ---------- EXAM SELECT ---------- */
+  .hero p{ color:var(--ink-soft); font-size:14px; line-height:1.55; max-width:48ch; margin:8px 0 0; }
+  .exam-list{ display:flex; flex-direction:column; gap:10px; margin-top:16px; }
+  .exam{
+    display:flex; align-items:center; gap:14px; background:var(--card); border:1px solid var(--line);
+    border-left:6px solid var(--e-accent); padding:14px 15px; cursor:pointer; border-radius:14px;
+  }
+  .exam:hover{border-color:var(--e-accent);}
+  .exam:active{transform:scale(.99);}
+  .exam .code{ font-size:11px; font-weight:600; color:var(--e-accent); border:1px solid var(--e-accent); padding:3px 7px; flex:0 0 auto; border-radius:999px; }
+  .exam .etext{flex:1;}
+  .exam .ename{ font-weight:600; font-size:15.5px; }
+  .exam .edesc{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
+  .exam .go{ color:var(--e-accent); font-size:14px; }
+
+  /* ---------- QUIZ ---------- */
+  .quizbar{ display:flex; align-items:center; justify-content:space-between; margin:14px 0 16px; }
+  .back{ font-size:12px; font-weight:500; color:var(--ink-soft); background:none; border:none; cursor:pointer; }
+  .back:hover{color:var(--ink);}
+  .tally{ font-size:12px; font-weight:600; color:var(--accent); }
+  .sheet{ background:var(--card); border:1px solid var(--line); padding:20px 18px; border-radius:18px; }
+  .topic-tag{ display:inline-block; font-size:10.5px; font-weight:600; color:var(--accent); border:1px solid var(--accent); padding:3px 10px; margin-bottom:14px; border-radius:999px; }
+  .focus-tag{ display:inline-block; font-size:10.5px; font-weight:600; color:#fff; background:var(--accent); padding:3px 10px; margin:0 6px 14px 0; border-radius:999px; }
+  .image-frame{ border:1px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:center; padding:14px; margin-bottom:16px; border-radius:14px; }
+  .image-frame svg{ max-width:220px; max-height:220px; width:100%; height:auto; }
+  .question{ font-weight:600; font-size:18px; line-height:1.4; margin-bottom:6px; }
+  .passage{ font-size:13.5px; line-height:1.6; color:var(--ink-soft); border-left:2px solid var(--line); padding-left:12px; margin:12px 0 16px; border-radius:4px; }
+  .options{ display:flex; flex-direction:column; gap:9px; margin-top:16px; }
+  .opt{
+    display:flex; align-items:flex-start; gap:10px; text-align:left; background:none; border:1px solid var(--line);
+    padding:12px 13px; font-size:14.5px; color:var(--ink); cursor:pointer; width:100%; border-radius:12px;
+  }
+  .opt:hover:not(:disabled){border-color:var(--accent);}
+  .opt:active:not(:disabled){transform:scale(.99);}
+  .opt .letter{ font-weight:600; font-size:13px; color:var(--ink-soft); flex:0 0 auto; }
+  .opt.correct{border-color:var(--green); background:#2E6B4F14;}
+  .opt.wrong{border-color:var(--red); background:#8B2E2E14;}
+  .opt:disabled{cursor:default;}
+  .margin-note{ margin-top:18px; padding-top:16px; border-top:1px dashed var(--line); display:none; }
+  .margin-note.show{display:block; animation:fadeSlideIn .25s ease both;}
+  .verdict{ font-weight:700; font-size:15px; margin-bottom:6px; }
+  .verdict.right{color:var(--green);} .verdict.wrong{color:var(--red);}
+  .explain{ font-size:13.5px; line-height:1.6; color:var(--ink-soft); }
+  .next-btn{ margin-top:18px; font-size:12.5px; font-weight:600; background:var(--ink); color:var(--bg); border:none; padding:11px 18px; cursor:pointer; border-radius:12px; }
+  .next-btn:hover{opacity:.85;}
+  .next-btn:active{transform:scale(.97);}
+  .loading{ font-size:13px; color:var(--ink-soft); padding:30px 0; text-align:center; }
+  .dot{animation:dotBlink 1.2s infinite;}
+  .dot:nth-child(2){animation-delay:.2s;} .dot:nth-child(3){animation-delay:.4s;}
+  .errbox{ font-size:13.5px; color:var(--red); padding:14px 0; }
+  .retry{ font-size:12px; font-weight:600; background:none; border:1px solid var(--red); color:var(--red); padding:6px 12px; cursor:pointer; margin-top:8px; border-radius:10px; }
+
+  .locked{ text-align:center; padding:26px 10px; }
+  .locked h3{margin:12px 0 6px;}
+  .locked p{color:var(--ink-soft); font-size:13.5px; line-height:1.5;}
+  .countdown{ font-size:20px; font-weight:700; color:var(--red); margin:10px 0; }
+  .locked-actions{ display:flex; flex-direction:column; gap:9px; margin-top:14px; }
+
+  .suggest-box{ margin-top:14px; padding:13px; border:1px solid var(--accent); border-radius:14px; background:#A85C2E0f; }
+  .suggest-box .stitle{font-weight:700; font-size:13.5px;}
+  .suggest-box .ssub{font-size:12.5px; color:var(--ink-soft); margin-top:3px;}
+
+  .mode-card{
+    display:flex; align-items:center; gap:14px; background:var(--card); border:1px solid var(--line);
+    padding:16px; border-radius:16px; cursor:pointer; margin-bottom:12px; text-align:left; width:100%;
+  }
+  .mode-card:hover{border-color:var(--accent);}
+  .mode-card:active{transform:scale(.99);}
+  .mode-card.locked{ opacity:.55; cursor:default; }
+  .mode-card .m-ic{font-size:24px; flex:0 0 auto;}
+  .mode-card .m-title{font-weight:700; font-size:15.5px;}
+  .mode-card .m-desc{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
+  .mode-card .m-badge{font-size:11px; font-weight:600; color:var(--accent); margin-top:5px;}
+
+  .summary-score{ text-align:center; padding:6px 0 18px; }
+  .summary-score .num{ font-weight:800; font-size:32px; }
+  .summary-score .lbl{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
+  .summary-section{ margin-top:6px; }
+  .summary-section-title{ font-weight:700; font-size:13.5px; margin:16px 0 8px; }
+  .topic-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px;
+  }
+  .topic-row .tr-name{font-size:13px; flex:1;}
+  .topic-row .tr-frac{font-size:12px; font-weight:600; color:var(--ink-soft); flex:0 0 auto;}
+  .topic-row .tr-btn{
+    font-size:11.5px; font-weight:600; background:var(--accent); color:#fff; border:none;
+    padding:7px 10px; border-radius:9px; cursor:pointer; flex:0 0 auto;
+  }
+  .summary-empty{ font-size:13px; color:var(--ink-soft); }
+
+  /* ---------- TUTOR ---------- */
+  .tutor{margin-top:22px;}
+  .tutor h3{font-size:13.5px; margin-bottom:8px; color:var(--ink-soft); font-weight:500;}
+  .tutor-log{display:flex; flex-direction:column; gap:10px; margin-bottom:10px;}
+  .tlog-q{font-size:13.5px; color:var(--ink); font-weight:600;}
+  .tlog-a{font-size:13.5px; color:var(--ink-soft); line-height:1.55; border-left:2px solid var(--accent); padding-left:10px;}
+  .tutor-input{display:flex; gap:8px;}
+  .tutor-input input{ flex:1; border:1px solid var(--line); background:#fff; padding:10px 12px; font-size:14px; color:var(--ink); border-radius:12px; }
+  .tutor-input input:focus{outline:1px solid var(--accent);}
+  .tutor-input button{ font-size:12px; font-weight:600; background:none; border:1px solid var(--ink); color:var(--ink); padding:0 14px; cursor:pointer; border-radius:12px; }
+  .tutor-input button:hover{background:var(--ink); color:var(--bg);}
+  .tutor-input button:disabled{opacity:.4;}
+
+  /* ---------- FRIENDS ---------- */
+  .friend-row{
+    display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid var(--line);
+    padding:12px 13px; margin-bottom:9px; cursor:pointer; border-radius:14px;
+  }
+  .friend-row:active{transform:scale(.99);}
+  .f-avatar{ width:38px; height:38px; border-radius:50%; background:#F2F1EC; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:17px; flex:0 0 auto; }
+  .f-info{flex:1;}
+  .f-name{font-weight:600; font-size:14.5px;}
+  .f-streak{font-size:12px; color:var(--ink-soft); font-weight:500;}
+  .add-friend-row{ display:flex; gap:8px; margin:14px 0 18px; }
+  .add-friend-row input{ flex:1; border:1px solid var(--line); background:var(--card); padding:11px 12px; font-size:14px; border-radius:12px; }
+
+  /* ---------- CHAT ---------- */
+  .chat-list-item{ display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid var(--line); padding:12px 13px; margin-bottom:9px; cursor:pointer; border-radius:14px; }
+  .chat-preview{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
+  .thread-header{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .thread-back{ background:none; border:none; font-size:12px; font-weight:500; color:var(--ink-soft); cursor:pointer; }
+  .bubbles{ display:flex; flex-direction:column; gap:9px; min-height:200px; margin-bottom:14px; }
+  .bubble{ max-width:75%; padding:10px 14px; font-size:14px; line-height:1.4; border-radius:16px; }
+  .bubble.me{ align-self:flex-end; background:var(--ink); color:var(--bg); border-bottom-right-radius:4px; }
+  .bubble.them{ align-self:flex-start; background:#F2F1EC; border:1px solid var(--line); border-bottom-left-radius:4px; }
+  .bubble.typing{ font-size:12px; color:var(--ink-soft); }
+  .chat-input-row{ display:flex; gap:8px; }
+  .chat-input-row input{ flex:1; border:1px solid var(--line); background:var(--card); padding:11px 12px; font-size:14px; border-radius:12px; }
+
+  /* ---------- PROFILE ---------- */
+  .profile-card{ background:var(--card); border:1px solid var(--line); padding:22px 18px; text-align:center; margin-bottom:16px; border-radius:18px; }
+  .p-avatar{ width:64px; height:64px; border-radius:50%; background:#F2F1EC; border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:30px; margin:0 auto 10px; }
+  .p-name{font-weight:700; font-size:19px;}
+  .p-meta{font-size:12.5px; color:var(--ink-soft); margin-top:3px;}
+  .badge-row{ display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:8px; }
+  .p-badge{ display:inline-block; font-size:10.5px; font-weight:600; padding:2px 9px; border:1px solid var(--gold); color:var(--gold); border-radius:999px; }
+  .p-badge.pass{ border-color:var(--accent); color:var(--accent); }
+  .stat-grid{ display:flex; gap:10px; margin-top:16px; }
+  .stat-box{ flex:1; background:var(--card); border:1px solid var(--line); padding:14px 8px; text-align:center; border-radius:14px; }
+  .stat-num{font-weight:700; font-size:20px;}
+  .stat-lbl{font-size:11px; color:var(--ink-soft); margin-top:3px;}
+  .profile-actions{display:flex; flex-direction:column; gap:9px; margin-top:18px;}
+  .ghost-btn{
+    font-size:12.5px; font-weight:600; background:none; border:1px solid var(--ink);
+    color:var(--ink); padding:11px; cursor:pointer; border-radius:12px;
+  }
+  .ghost-btn:hover{background:var(--ink); color:var(--bg);}
+  #logoutBtn:hover{ background:var(--red) !important; color:#fff !important; border-color:var(--red) !important; }
+  .exam-pass-btn{
+    font-weight:600; font-size:14px; width:100%;
+    background:linear-gradient(90deg, var(--accent), #7a3f1d); color:#fff; border:none; padding:13px; cursor:pointer; border-radius:12px;
+  }
+  .exam-pass-btn:hover{opacity:.9;}
+
+  /* ---------- PREMIUM / PASS / EDIT MODALS ---------- */
+  .premium-btn{
+    width:100%; font-weight:600; font-size:14px;
+    background:linear-gradient(90deg, var(--gold), #8a6a1f); color:#fff; border:none; padding:13px; cursor:pointer; border-radius:12px;
+  }
+  .premium-btn:hover{opacity:.9;}
+  .overlay{
+    position:fixed; inset:0; background:#1C1A1699; z-index:40; display:none;
+    align-items:flex-end; justify-content:center;
+  }
+  .overlay.show{ display:flex; animation:overlayFade .18s ease both; }
+  .modal{
+    background:var(--bg); width:100%; max-width:640px; padding:24px 20px 30px;
+    border-top:3px solid var(--gold); animation:fadeSlideIn .25s ease both; border-radius:20px 20px 0 0;
+  }
+  .modal.pass-modal{ border-top-color:var(--accent); }
+  .modal.plain-modal{ border-top-color:var(--ink); }
+  .modal h2{font-size:20px;}
+  .modal .price{ font-weight:800; font-size:30px; margin:10px 0 4px; color:var(--gold); }
+  .modal.pass-modal .price{ color:var(--accent); }
+  .perk{ display:flex; gap:9px; font-size:14px; margin-top:10px; align-items:flex-start; }
+  .perk .chk{color:var(--green); flex:0 0 auto;}
+  .modal-close{ background:none; border:none; color:var(--ink-soft); font-size:12px; font-weight:500; cursor:pointer; margin-top:16px; width:100%; text-align:center; }
+  .demo-note{ font-size:11px; color:var(--ink-soft); text-align:center; margin-top:10px; }
+  .ai-banner{
+    display:flex; align-items:center; gap:7px; background:#EFF3F7; border:1px solid #D7E0E8;
+    color:#3A4A57; font-size:12px; font-weight:500; padding:9px 12px; border-radius:10px; margin-top:12px;
+  }
+  .ai-banner.small{ font-size:11px; padding:7px 11px; margin:0 0 12px; }
+  .tos-line{ font-size:12px; color:var(--ink-soft); text-align:center; margin-top:12px; line-height:1.5; }
+  .tos-line a{ color:var(--ink); font-weight:600; }
+  .pay-step{ margin-top:14px; }
+  .pay-element-wrap{ border:1px solid var(--line); border-radius:12px; padding:12px; background:var(--card); min-height:44px; }
+  .pay-btn{
+    width:100%; font-weight:600; font-size:14px; border:none; padding:13px; cursor:pointer;
+    border-radius:12px; margin-top:14px; color:#fff; background:var(--ink);
+  }
+  .pay-btn:hover{opacity:.9;}
+  .pay-btn:disabled{opacity:.5; cursor:default;}
+  .pay-msg{ font-size:12.5px; margin-top:10px; text-align:center; }
+  .pay-msg.err{ color:var(--red); }
+  .pay-msg.ok{ color:var(--green); }
+  .pay-loading{ font-size:13px; color:var(--ink-soft); text-align:center; padding:14px 0; }
+
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="premiumOverlay">
+  <div class="modal">
+    <h2 id="premTitle"></h2>
+    <p id="premSub" style="color:var(--ink-soft); font-size:13.5px; margin-top:6px;"></p>
+    <div class="price" id="premPrice"></div>
+    <div class="perk"><span class="chk">✓</span><span id="perk1"></span></div>
+    <div class="perk"><span class="chk">✓</span><span id="perk2"></span></div>
+    <div class="perk"><span class="chk">✓</span><span id="perk3"></span></div>
+    <button class="premium-btn" id="premCta" style="margin-top:18px;"></button>
+    <div class="pay-step hidden" id="premPayStep">
+      <div class="pay-element-wrap" id="premPaymentElement"></div>
+      <button class="pay-btn" id="premPayBtn"></button>
+      <p class="pay-msg hidden" id="premPayMsg"></p>
+    </div>
+    <p class="demo-note" id="demoNote"></p>
+    <button class="modal-close" id="premClose"></button>
+  </div>
+</div>
+
+<div class="overlay" id="examPassOverlay">
+  <div class="modal pass-modal">
+    <h2 id="passTitle"></h2>
+    <p id="passSub" style="color:var(--ink-soft); font-size:13.5px; margin-top:6px;"></p>
+    <div class="price" id="passPrice"></div>
+    <label class="hint" id="passChooseLabel" style="display:block; margin-top:12px;"></label>
+    <select class="select-field" id="examPassSelect"></select>
+    <button class="exam-pass-btn" id="passCta" style="margin-top:16px;"></button>
+    <div class="pay-step hidden" id="passPayStep">
+      <div class="pay-element-wrap" id="passPaymentElement"></div>
+      <button class="pay-btn" id="passPayBtn"></button>
+      <p class="pay-msg hidden" id="passPayMsg"></p>
+    </div>
+    <p class="demo-note" id="passDemoNote"></p>
+    <button class="modal-close" id="passClose"></button>
+  </div>
+</div>
+
+<div class="overlay" id="friendOverlay">
+  <div class="modal" id="friendModalBody"></div>
+</div>
+
+<div class="overlay" id="editOverlay">
+  <div class="modal plain-modal">
+    <h2 id="editTitle"></h2>
+    <input class="field" id="editNameInput" style="margin-top:14px;">
+    <select class="select-field" id="editCountrySelect"></select>
+    <p class="hint" id="editCountryHint"></p>
+    <button class="primary-btn" id="editSaveBtn" style="width:100%;"></button>
+    <button class="modal-close" id="editCloseBtn"></button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">Studly</div>
+    <div class="right-cluster">
+      <span class="pill"><span class="streak" id="streakIcon">🔥</span><span id="streakNum">0</span></span>
+      <span class="pill" id="heartsPill"></span>
+      <button class="avatar-btn" id="topAvatar">🙂</button>
+      <div style="position:relative;">
+        <button class="lang-btn" id="langBtn">🌐 <span id="langLabel">EN</span></button>
+        <div class="lang-menu" id="langMenu"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ONBOARDING / AUTH -->
+  <div id="onboardScreen" class="animate-in">
+    <div class="logo">Studly</div>
+    <div class="toggle-row" style="margin-top:14px;">
+      <button class="toggle-btn sel" id="authTabRegister"></button>
+      <button class="toggle-btn" id="authTabLogin"></button>
+    </div>
+
+    <div id="registerPane">
+      <p style="color:var(--ink-soft); font-size:14px; margin-top:8px;" id="onbSub"></p>
+      <div class="avatar-grid" id="avatarGrid"></div>
+      <input class="field" id="nameInput" maxlength="18">
+      <select class="select-field" id="countryInput"></select>
+      <p class="hint" id="countryHint"></p>
+      <div class="toggle-row">
+        <button class="toggle-btn sel" id="tabEmail" data-type="email"></button>
+        <button class="toggle-btn" id="tabPhone" data-type="phone"></button>
+      </div>
+      <input class="field" id="contactInput" type="email">
+      <p class="hint" id="contactHint"></p>
+      <input class="field" id="passwordInput" type="password">
+      <input class="field" id="confirmPasswordInput" type="password">
+      <p class="auth-error hidden" id="registerError"></p>
+      <button class="primary-btn" id="onbStart" style="width:100%;"></button>
+      <p class="tos-line" id="tosLine"></p>
+    </div>
+
+    <div id="loginPane" class="hidden">
+      <p style="color:var(--ink-soft); font-size:14px; margin-top:8px;" id="loginSub"></p>
+      <div class="toggle-row">
+        <button class="toggle-btn sel" id="loginTabEmail" data-type="email"></button>
+        <button class="toggle-btn" id="loginTabPhone" data-type="phone"></button>
+      </div>
+      <input class="field" id="loginContactInput" type="email">
+      <input class="field" id="loginPasswordInput" type="password">
+      <p class="auth-error hidden" id="loginError"></p>
+      <button class="primary-btn" id="loginStart"></button>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+
+  <div id="app" class="hidden">
+
+    <div class="tabpanel show animate-in" id="tab-study">
+      <div id="examScreen">
+        <div class="hero">
+          <h1 id="heroTitle"></h1>
+          <p id="heroSub"></p>
+          <div class="ai-banner">🤖 <span id="aiBannerHeroText"></span></div>
+        </div>
+        <div class="exam-list" id="examList"></div>
+      </div>
+      <div id="quizScreen" class="hidden">
+        <div class="quizbar">
+          <button class="back" id="backBtn"></button>
+          <span class="pill hidden" id="diagTimerPill">⏱ 00:00</span>
+          <button class="back hidden" id="finishBtn"></button>
+          <span class="tally" id="tally">0 / 0</span>
+        </div>
+        <div class="ai-banner small">🤖 <span id="aiBannerQuizText"></span></div>
+        <div class="sheet"><div id="qBody"></div></div>
+        <div class="tutor">
+          <h3 id="tutorHeading"></h3>
+          <div class="tutor-log" id="tutorLog"></div>
+          <div class="tutor-input">
+            <input type="text" id="tutorInput">
+            <button id="tutorSend"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabpanel" id="tab-friends">
+      <h1 id="friendsTitle"></h1>
+      <p style="color:var(--ink-soft); font-size:14px; margin-top:6px;" id="friendsSub"></p>
+      <div class="add-friend-row">
+        <input type="text" id="addFriendInput">
+        <button class="primary-btn" id="addFriendBtn"></button>
+      </div>
+      <div id="friendList"></div>
+    </div>
+
+    <div class="tabpanel" id="tab-chat">
+      <div id="chatListView">
+        <h1 id="chatTitle"></h1>
+        <p style="color:var(--ink-soft); font-size:14px; margin:6px 0 16px;" id="chatSub"></p>
+        <div id="chatList"></div>
+      </div>
+      <div id="chatThreadView" class="hidden">
+        <div class="thread-header">
+          <button class="thread-back" id="threadBack"></button>
+          <div class="f-avatar" id="threadAvatar" style="width:32px;height:32px;font-size:15px;"></div>
+          <div class="f-name" id="threadName" style="font-size:14.5px;"></div>
+        </div>
+        <div class="bubbles" id="bubbles"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chatInput">
+          <button class="primary-btn" id="chatSend">→</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabpanel" id="tab-profile">
+      <h1 id="profileTitle"></h1>
+      <div class="profile-card">
+        <div class="p-avatar" id="profAvatar"></div>
+        <div class="p-name" id="profName"></div>
+        <div class="p-meta" id="profMeta"></div>
+        <div class="badge-row">
+          <div class="p-badge hidden" id="profBadge"></div>
+          <div class="p-badge pass hidden" id="passBadge"></div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-num" id="statStreak">0</div><div class="stat-lbl" id="lblStreak"></div></div>
+          <div class="stat-box"><div class="stat-num" id="statCorrect">0</div><div class="stat-lbl" id="lblCorrect"></div></div>
+          <div class="stat-box"><div class="stat-num" id="statTotal">0</div><div class="stat-lbl" id="lblTotal"></div></div>
+        </div>
+        <div class="profile-actions">
+          <button class="premium-btn hidden" id="goPremiumBtn"></button>
+          <button class="exam-pass-btn hidden" id="goExamPassBtn"></button>
+          <button class="ghost-btn" id="editProfileBtn"></button>
+          <button class="ghost-btn" id="logoutBtn" style="border-color:var(--red); color:var(--red);"></button>
+        </div>
+      </div>
+      <p class="demo-note" id="footnote" style="text-align:left;"></p>
+      <p class="demo-note" style="text-align:left;"><a href="terms.html" target="_blank" rel="noopener" style="color:var(--ink); font-weight:600;" id="tosProfileLink"></a> · <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--ink); font-weight:600;" id="privacyProfileLink"></a></p>
+    </div>
+
+  </div>
+</div>
+
+<div class="bottomnav hidden" id="bottomNav">
+  <div class="navgroup" id="navGroup">
+    <button class="nav-toggle" id="navToggleBtn">‹</button>
+    <button class="navbtn active" data-tab="study" id="navStudyBtn"><span class="ic">📘</span><span id="navStudyLbl"></span></button>
+    <button class="navbtn" data-tab="friends" id="navFriendsBtn"><span class="ic">👥</span><span id="navFriendsLbl"></span></button>
+    <button class="navbtn" data-tab="chat" id="navChatBtn"><span class="ic">💬</span><span id="navChatLbl"></span></button>
+    <button class="navbtn" data-tab="profile" id="navProfileBtn"><span class="ic">👤</span><span id="navProfileLbl"></span></button>
+  </div>
+</div>
+
+<script>
+/* ================= i18n ================= */
+const LANGS = { en:{name:"English",full:"English"}, sv:{name:"Svenska",full:"Swedish"}, es:{name:"Español",full:"Spanish"}, de:{name:"Deutsch",full:"German"}, fr:{name:"Français",full:"French"} };
+const STR = {
+  onbTitle:{en:"Create your account", sv:"Skapa ditt konto", es:"Crea tu cuenta", de:"Erstelle dein Konto", fr:"Créez votre compte"},
+  onbSub:{en:"Pick an avatar, your country, and how to reach you — then start studying.", sv:"Välj en avatar, ditt land och hur vi når dig — sen kör vi.", es:"Elige un avatar, tu país y un contacto — y empieza a estudiar.", de:"Wähle Avatar, Land und Kontakt — dann geht's los.", fr:"Choisissez un avatar, votre pays et un contact — puis étudiez."},
+  namePlaceholder:{en:"Your name", sv:"Ditt namn", es:"Tu nombre", de:"Dein Name", fr:"Votre nom"},
+  countryHint:{en:"Used to tailor driving & civics questions to where you are.", sv:"Används för att anpassa körkorts- och samhällsfrågor efter var du bor.", es:"Se usa para adaptar preguntas de conducción y civismo a tu país.", de:"Wird genutzt, um Verkehrs- und Staatsbürgerkundefragen anzupassen.", fr:"Sert à adapter les questions de conduite et civisme à votre pays."},
+  emailTab:{en:"Email", sv:"E-post", es:"Correo", de:"E-Mail", fr:"E-mail"},
+  phoneTab:{en:"Phone", sv:"Telefon", es:"Teléfono", de:"Telefon", fr:"Téléphone"},
+  emailPlaceholder:{en:"you@example.com", sv:"du@exempel.se", es:"tu@ejemplo.com", de:"du@beispiel.de", fr:"vous@exemple.fr"},
+  phonePlaceholder:{en:"+1 555 123 4567", sv:"+46 70 123 45 67", es:"+34 600 123 456", de:"+49 151 12345678", fr:"+33 6 12 34 56 78"},
+  contactHint:{en:"No verification — just kept on this device to identify your account.", sv:"Ingen verifiering — sparas bara på den här enheten för att identifiera ditt konto.", es:"Sin verificación — solo se guarda en este dispositivo para identificar tu cuenta.", de:"Keine Verifizierung — nur auf diesem Gerät gespeichert, um dein Konto zu erkennen.", fr:"Aucune vérification — conservé uniquement sur cet appareil pour identifier votre compte."},
+  createAccount:{en:"Create account & start", sv:"Skapa konto & börja", es:"Crear cuenta y empezar", de:"Konto erstellen & starten", fr:"Créer un compte et commencer"},
+  heroTitle:{en:"Choose your exam", sv:"Välj ditt prov", es:"Elige tu examen", de:"Wähle deine Prüfung", fr:"Choisissez votre examen"},
+  heroSub:{en:"Fresh AI questions each time, with a picture whenever the question calls for one.", sv:"Nya AI-frågor varje gång, med bild när frågan kräver det.", es:"Preguntas nuevas de IA cada vez, con imagen cuando corresponda.", de:"Immer neue KI-Fragen, mit Bild bei Bedarf.", fr:"De nouvelles questions IA à chaque fois, avec image si besoin."},
+  back:{en:"← all exams", sv:"← alla prov", es:"← todos los exámenes", de:"← alle Prüfungen", fr:"← tous les examens"},
+  tutorHeading:{en:"Ask the tutor about anything in this subject", sv:"Fråga läraren om ämnet", es:"Pregunta al tutor sobre este tema", de:"Frag den Tutor zu diesem Fach", fr:"Posez une question au tuteur"},
+  tutorPlaceholder:{en:"type your question…", sv:"skriv din fråga…", es:"escribe tu pregunta…", de:"deine Frage…", fr:"votre question…"},
+  ask:{en:"Ask", sv:"Fråga", es:"Preguntar", de:"Fragen", fr:"Demander"},
+  loading:{en:"summoning a question", sv:"tar fram en fråga", es:"generando pregunta", de:"lädt Frage", fr:"génération…"},
+  correct:{en:"Correct.", sv:"Rätt!", es:"¡Correcto!", de:"Richtig.", fr:"Correct."},
+  wrong:{en:"Not quite.", sv:"Inte riktigt.", es:"No es correcto.", de:"Nicht ganz.", fr:"Pas tout à fait."},
+  next:{en:"Next question →", sv:"Nästa fråga →", es:"Siguiente →", de:"Weiter →", fr:"Suivant →"},
+  errbox:{en:"Couldn't generate a question.", sv:"Kunde inte generera en fråga.", es:"No se pudo generar la pregunta.", de:"Frage fehlgeschlagen.", fr:"Échec de génération."},
+  retry:{en:"Try again", sv:"Försök igen", es:"Reintentar", de:"Erneut versuchen", fr:"Réessayer"},
+  thinking:{en:"thinking…", sv:"tänker…", es:"pensando…", de:"denkt…", fr:"réflexion…"},
+  tutorErr:{en:"Couldn't reach the tutor — try again.", sv:"Kunde inte nå läraren — försök igen.", es:"No se pudo contactar al tutor.", de:"Tutor nicht erreichbar.", fr:"Tuteur injoignable."},
+  navStudy:{en:"Study", sv:"Plugga", es:"Estudiar", de:"Lernen", fr:"Étudier"},
+  navFriends:{en:"Friends", sv:"Vänner", es:"Amigos", de:"Freunde", fr:"Amis"},
+  navChat:{en:"Chat", sv:"Chatt", es:"Chat", de:"Chat", fr:"Discuter"},
+  navProfile:{en:"Profile", sv:"Profil", es:"Perfil", de:"Profil", fr:"Profil"},
+  lockedTitle:{en:"Out of hearts", sv:"Slut på hjärtan", es:"Sin corazones", de:"Keine Herzen mehr", fr:"Plus de cœurs"},
+  lockedSub:{en:"Wait for a heart to refill, or unlock unlimited hearts below.", sv:"Vänta på ett nytt hjärta, eller lås upp obegränsat nedan.", es:"Espera a que se recargue un corazón, o desbloquea corazones ilimitados.", de:"Warte auf ein neues Herz oder schalte unbegrenzte Herzen frei.", fr:"Attendez un cœur ou débloquez des cœurs illimités."},
+  goPremium:{en:"Go Premium", sv:"Bli Premium", es:"Hazte Premium", de:"Premium holen", fr:"Passer Premium"},
+  premTitle:{en:"Studly Premium", sv:"Studly Premium", es:"Studly Premium", de:"Studly Premium", fr:"Studly Premium"},
+  premSub:{en:"Never stop studying — unlimited access to every exam.", sv:"Sluta aldrig plugga — obegränsad tillgång till alla prov.", es:"Nunca dejes de estudiar — acceso ilimitado a todos los exámenes.", de:"Hör nie auf zu lernen — unbegrenzter Zugang zu allen Prüfungen.", fr:"N'arrêtez jamais d'étudier — accès illimité à tous les examens."},
+  premPrice:{en:"€9.99 / month", sv:"9,99 € / månad", es:"9,99 € / mes", de:"9,99 € / Monat", fr:"9,99 € / mois"},
+  perk1:{en:"Unlimited hearts on every exam", sv:"Obegränsat med hjärtan på alla prov", es:"Corazones ilimitados en todos los exámenes", de:"Unbegrenzte Herzen in jeder Prüfung", fr:"Cœurs illimités sur tous les examens"},
+  perk2:{en:"No wait time between sessions", sv:"Ingen väntetid mellan pass", es:"Sin tiempos de espera", de:"Keine Wartezeit", fr:"Aucun temps d'attente"},
+  perk3:{en:"Priority tutor responses", sv:"Prioriterade svar från läraren", es:"Respuestas prioritarias del tutor", de:"Priorisierte Tutor-Antworten", fr:"Réponses prioritaires du tuteur"},
+  premCta:{en:"Continue to payment", sv:"Fortsätt till betalning", es:"Continuar al pago", de:"Weiter zur Zahlung", fr:"Continuer vers le paiement"},
+  demoNote:{en:"Secure payment powered by Stripe.", sv:"Säker betalning via Stripe.", es:"Pago seguro con Stripe.", de:"Sichere Zahlung über Stripe.", fr:"Paiement sécurisé via Stripe."},
+  close:{en:"Close", sv:"Stäng", es:"Cerrar", de:"Schließen", fr:"Fermer"},
+  premiumActiveBadge:{en:"PREMIUM", sv:"PREMIUM", es:"PREMIUM", de:"PREMIUM", fr:"PREMIUM"},
+  passActiveBadge:{en:"PASS", sv:"PASS", es:"PASE", de:"PASS", fr:"PASS"},
+  getExamPass:{en:"Get Exam Pass", sv:"Skaffa Provpass", es:"Obtener Pase de Examen", de:"Prüfungs-Pass holen", fr:"Obtenir le Pass Examen"},
+  passTitle:{en:"Exam Pass", sv:"Provpass", es:"Pase de Examen", de:"Prüfungs-Pass", fr:"Pass Examen"},
+  passSub:{en:"Unlimited hearts on one exam of your choice, for 60 days.", sv:"Obegränsat med hjärtan för ett valfritt prov, i 60 dagar.", es:"Corazones ilimitados en un examen a tu elección, durante 60 días.", de:"Unbegrenzte Herzen für eine gewählte Prüfung, für 60 Tage.", fr:"Cœurs illimités pour un examen de votre choix, pendant 60 jours."},
+  passPrice:{en:"€14.99 · 60 days", sv:"14,99 € · 60 dagar", es:"14,99 € · 60 días", de:"14,99 € · 60 Tage", fr:"14,99 € · 60 jours"},
+  passChoose:{en:"Choose the exam this pass unlocks", sv:"Välj vilket prov passet gäller", es:"Elige el examen que desbloquea", de:"Wähle die Prüfung für den Pass", fr:"Choisissez l'examen à débloquer"},
+  passCta:{en:"Continue to payment", sv:"Fortsätt till betalning", es:"Continuar al pago", de:"Weiter zur Zahlung", fr:"Continuer vers le paiement"},
+  payNowBtn:{en:"Pay now", sv:"Betala nu", es:"Pagar ahora", de:"Jetzt bezahlen", fr:"Payer maintenant"},
+  payProcessing:{en:"Processing payment…", sv:"Bearbetar betalning…", es:"Procesando el pago…", de:"Zahlung wird verarbeitet…", fr:"Traitement du paiement…"},
+  payPreparing:{en:"Preparing secure checkout…", sv:"Förbereder säker betalning…", es:"Preparando el pago seguro…", de:"Sichere Kasse wird vorbereitet…", fr:"Préparation du paiement sécurisé…"},
+  paySucceeded:{en:"Payment successful — you're all set.", sv:"Betalningen lyckades — allt klart.", es:"Pago realizado — todo listo.", de:"Zahlung erfolgreich — alles bereit.", fr:"Paiement réussi — c'est bon."},
+  payErrorGeneric:{en:"Payment couldn't be completed. Please try again.", sv:"Betalningen kunde inte genomföras. Försök igen.", es:"No se pudo completar el pago. Inténtalo de nuevo.", de:"Zahlung konnte nicht abgeschlossen werden. Bitte erneut versuchen.", fr:"Le paiement n'a pas abouti. Veuillez réessayer."},
+  daysLeftLabel:{en:"days left", sv:"dagar kvar", es:"días restantes", de:"Tage übrig", fr:"jours restants"},
+  aiBannerHero:{en:"All questions and images on this page are generated by AI — always double-check against official material.", sv:"Alla frågor och bilder på den här sidan är AI-genererade — kontrollera alltid mot officiellt material.", es:"Todas las preguntas e imágenes de esta página son generadas por IA — verifica siempre con material oficial.", de:"Alle Fragen und Bilder auf dieser Seite werden von KI erstellt — vergleiche sie stets mit offiziellem Material.", fr:"Toutes les questions et images de cette page sont générées par IA — vérifiez toujours avec le matériel officiel."},
+  aiBannerQuiz:{en:"This question was generated by AI", sv:"Den här frågan är AI-genererad", es:"Esta pregunta fue generada por IA", de:"Diese Frage wurde von KI erstellt", fr:"Cette question a été générée par IA"},
+  tosLine:{en:'By creating an account you agree to our <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.', sv:'Genom att skapa ett konto godkänner du våra <a href="terms.html" target="_blank" rel="noopener">användarvillkor</a> och vår <a href="privacy.html" target="_blank" rel="noopener">integritetspolicy</a>.', es:'Al crear una cuenta aceptas nuestros <a href="terms.html" target="_blank" rel="noopener">Términos de Servicio</a> y nuestra <a href="privacy.html" target="_blank" rel="noopener">Política de Privacidad</a>.', de:'Mit der Kontoerstellung stimmst du unseren <a href="terms.html" target="_blank" rel="noopener">Nutzungsbedingungen</a> und unserer <a href="privacy.html" target="_blank" rel="noopener">Datenschutzerklärung</a> zu.', fr:'En créant un compte, vous acceptez nos <a href="terms.html" target="_blank" rel="noopener">conditions d\u2019utilisation</a> et notre <a href="privacy.html" target="_blank" rel="noopener">politique de confidentialité</a>.'},
+  tosProfileLink:{en:"Terms of Service", sv:"Användarvillkor", es:"Términos de Servicio", de:"Nutzungsbedingungen", fr:"Conditions d'utilisation"},
+  privacyProfileLink:{en:"Privacy Policy", sv:"Integritetspolicy", es:"Política de Privacidad", de:"Datenschutzerklärung", fr:"Politique de confidentialité"},
+  friendsTitle:{en:"Friends", sv:"Vänner", es:"Amigos", de:"Freunde", fr:"Amis"},
+  friendsSub:{en:"Demo friends — add one to see how streaks compare.", sv:"Demo-vänner — lägg till en och jämför streaks.", es:"Amigos demo — añade uno y compara rachas.", de:"Demo-Freunde — füge einen hinzu und vergleiche Serien.", fr:"Amis démo — ajoutez-en un et comparez les séries."},
+  addFriendPlaceholder:{en:"add a friend by name…", sv:"lägg till en vän…", es:"añadir un amigo…", de:"Freund hinzufügen…", fr:"ajouter un ami…"},
+  addBtn:{en:"Add", sv:"Lägg till", es:"Añadir", de:"Hinzufügen", fr:"Ajouter"},
+  streakDaysLabel:{en:"day streak", sv:"dagars streak", es:"días de racha", de:"Tage Serie", fr:"jours de série"},
+  message:{en:"Message", sv:"Meddela", es:"Mensaje", de:"Nachricht", fr:"Message"},
+  chatTitle:{en:"Chat", sv:"Chatt", es:"Chat", de:"Chat", fr:"Discussion"},
+  chatSub:{en:"Keep each other accountable.", sv:"Peppa varandra.", es:"Anímense mutuamente.", de:"Motiviert euch gegenseitig.", fr:"Encouragez-vous mutuellement."},
+  chatEmpty:{en:"No messages yet — say hi!", sv:"Inga meddelanden än — säg hej!", es:"Sin mensajes aún — ¡saluda!", de:"Noch keine Nachrichten — sag hallo!", fr:"Aucun message — dites bonjour !"},
+  chatInputPlaceholder:{en:"message…", sv:"meddelande…", es:"mensaje…", de:"Nachricht…", fr:"message…"},
+  profileTitle:{en:"Profile", sv:"Profil", es:"Perfil", de:"Profil", fr:"Profil"},
+  lblStreak:{en:"streak", sv:"streak", es:"racha", de:"serie", fr:"série"},
+  lblCorrect:{en:"correct", sv:"rätt", es:"correctas", de:"richtig", fr:"correctes"},
+  lblTotal:{en:"answered", sv:"besvarade", es:"respondidas", de:"beantwortet", fr:"répondu"},
+  editProfile:{en:"Edit profile", sv:"Redigera profil", es:"Editar perfil", de:"Profil bearbeiten", fr:"Modifier le profil"},
+  editTitle:{en:"Edit profile", sv:"Redigera profil", es:"Editar perfil", de:"Profil bearbeiten", fr:"Modifier le profil"},
+  save:{en:"Save", sv:"Spara", es:"Guardar", de:"Speichern", fr:"Enregistrer"},
+  footnote:{en:"AI-generated practice — treat this as extra reps, not a replacement for official materials. Friends and chat are local demo data.", sv:"AI-genererad övning — extra träning, ej ersättning för officiellt material. Vänner och chatt är lokal demodata.", es:"Práctica generada por IA — no sustituye materiales oficiales. Amigos y chat son datos demo locales.", de:"KI-generierte Übung, kein Ersatz für offizielles Material. Freunde und Chat sind lokale Demodaten.", fr:"Entraînement généré par IA, pas un substitut au matériel officiel. Amis et chat sont des données de démo locales."},
+  focusedTitle:{en:"Struggling with this topic?", sv:"Kämpar du med det här ämnet?", es:"¿Tienes dificultades con este tema?", de:"Schwierigkeiten mit diesem Thema?", fr:"Ce sujet vous pose problème ?"},
+  focusedSub:{en:"You've missed a few on", sv:"Du har missat några om", es:"Has fallado varias sobre", de:"Du hast einige verpasst zu", fr:"Vous en avez raté plusieurs sur"},
+  focusedStart:{en:"Start 8 focused questions", sv:"Starta 8 fokuserade frågor", es:"Empezar 8 preguntas enfocadas", de:"8 gezielte Fragen starten", fr:"Démarrer 8 questions ciblées"},
+  focusedProgressLabel:{en:"Focused practice", sv:"Fokuserad övning", es:"Práctica enfocada", de:"Gezieltes Üben", fr:"Entraînement ciblé"},
+  focusedDoneTitle:{en:"Focused round complete", sv:"Fokusrundan klar", es:"Ronda enfocada completa", de:"Fokusrunde abgeschlossen", fr:"Session ciblée terminée"},
+  focusedContinue:{en:"Keep studying", sv:"Fortsätt plugga", es:"Seguir estudiando", de:"Weiter lernen", fr:"Continuer à étudier"},
+  modeTitle:{en:"How do you want to study?", sv:"Hur vill du plugga?", es:"¿Cómo quieres estudiar?", de:"Wie möchtest du lernen?", fr:"Comment voulez-vous étudier ?"},
+  practiceModeTitle:{en:"Free practice", sv:"Öva fritt", es:"Práctica libre", de:"Freies Üben", fr:"Entraînement libre"},
+  practiceModeDesc:{en:"Random questions, no time limit.", sv:"Slumpade frågor, ingen tidsgräns.", es:"Preguntas al azar, sin límite de tiempo.", de:"Zufällige Fragen, kein Zeitlimit.", fr:"Questions aléatoires, sans limite de temps."},
+  topicPickTitle:{en:"Anything you're struggling with?", sv:"Kämpar du med något speciellt?", es:"¿Hay algo que se te dificulte?", de:"Gibt es etwas, das dir schwerfällt?", fr:"Un point qui vous pose problème ?"},
+  topicPickSub:{en:"Pick a topic to drill first, for example:", sv:"Välj ett ämne att öva på först, till exempel:", es:"Elige un tema para practicar primero, por ejemplo:", de:"Wähle ein Thema zum gezielten Üben, zum Beispiel:", fr:"Choisissez un thème à travailler d'abord, par exemple :"},
+  topicPickNone:{en:"No, mix it up — surprise me", sv:"Nej, blanda fritt — överraska mig", es:"No, mézclalo todo — sorpréndeme", de:"Nein, alles mischen — überrasch mich", fr:"Non, mélangez tout — surprenez-moi"},
+  diagModeTitle:{en:"Diagnostic test", sv:"Diagnostiskt prov", es:"Prueba diagnóstica", de:"Diagnosetest", fr:"Test diagnostique"},
+  diagModeDesc:{en:"Timed test similar in format to the real exam.", sv:"Tidsbegränsat prov som liknar det riktiga provet.", es:"Prueba cronometrada similar al examen real.", de:"Zeitlich begrenzter Test im Format der echten Prüfung.", fr:"Test chronométré au format proche de l'examen réel."},
+  diagLeftSuffix:{en:"left this month", sv:"kvar denna månad", es:"restantes este mes", de:"diesen Monat übrig", fr:"restants ce mois-ci"},
+  diagUnlimitedLabel:{en:"Unlimited", sv:"Obegränsat", es:"Ilimitado", de:"Unbegrenzt", fr:"Illimité"},
+  diagLockedNote:{en:"Used up for this month — unlock more below.", sv:"Slut för denna månad — lås upp fler nedan.", es:"Agotadas este mes — desbloquea más abajo.", de:"Für diesen Monat aufgebraucht — unten freischalten.", fr:"Épuisés ce mois-ci — débloquez-en plus ci-dessous."},
+  finish:{en:"Finish", sv:"Avsluta", es:"Terminar", de:"Beenden", fr:"Terminer"},
+  summaryTitle:{en:"Session summary", sv:"Sammanfattning", es:"Resumen de la sesión", de:"Sitzungsübersicht", fr:"Résumé de la session"},
+  diagSummaryTitle:{en:"Diagnostic test summary", sv:"Sammanfattning – diagnostiskt prov", es:"Resumen de la prueba diagnóstica", de:"Zusammenfassung – Diagnosetest", fr:"Résumé du test diagnostique"},
+  scoreLabel:{en:"score", sv:"resultat", es:"resultado", de:"Ergebnis", fr:"score"},
+  goodAt:{en:"Good at", sv:"Bra på", es:"Se te da bien", de:"Gut in", fr:"Points forts"},
+  needsPractice:{en:"Needs more practice", sv:"Träna mer på", es:"Necesita más práctica", de:"Braucht mehr Übung", fr:"À travailler"},
+  notEnoughData:{en:"Not enough answers yet to break this down — keep going.", sv:"Inte tillräckligt med svar än för att bryta ner detta — fortsätt plugga.", es:"Aún no hay suficientes respuestas — sigue practicando.", de:"Noch zu wenig Antworten für eine Aufschlüsselung — mach weiter.", fr:"Pas encore assez de réponses pour un détail — continuez."},
+  practiceThisBtn:{en:"Practice 8", sv:"Öva 8 frågor", es:"Practicar 8", de:"8 üben", fr:"Pratiquer 8"},
+  moreQuestions:{en:"Choose what's next", sv:"Välj vad som händer nu", es:"Elige qué sigue", de:"Wähle, was als Nächstes kommt", fr:"Choisissez la suite"},
+  timeUp:{en:"Time's up!", sv:"Tiden är ute!", es:"¡Se acabó el tiempo!", de:"Zeit ist um!", fr:"Temps écoulé !"},
+  authRegisterTab:{en:"Create account", sv:"Skapa konto", es:"Crear cuenta", de:"Konto erstellen", fr:"Créer un compte"},
+  authLoginTab:{en:"Log in", sv:"Logga in", es:"Iniciar sesión", de:"Anmelden", fr:"Se connecter"},
+  loginSub:{en:"Log in with the email or phone and password you registered with.", sv:"Logga in med e-post/telefon och lösenordet du registrerade dig med.", es:"Inicia sesión con el correo/teléfono y la contraseña que registraste.", de:"Melde dich mit E-Mail/Telefon und deinem Passwort an.", fr:"Connectez-vous avec l'e-mail/téléphone et le mot de passe utilisés à l'inscription."},
+  passwordPlaceholder:{en:"Password", sv:"Lösenord", es:"Contraseña", de:"Passwort", fr:"Mot de passe"},
+  confirmPasswordPlaceholder:{en:"Confirm password", sv:"Bekräfta lösenord", es:"Confirmar contraseña", de:"Passwort bestätigen", fr:"Confirmer le mot de passe"},
+  logIn:{en:"Log in", sv:"Logga in", es:"Iniciar sesión", de:"Anmelden", fr:"Se connecter"},
+  logOut:{en:"Log out", sv:"Logga ut", es:"Cerrar sesión", de:"Abmelden", fr:"Se déconnecter"},
+  errPasswordLength:{en:"Password must be at least 6 characters.", sv:"Lösenordet måste vara minst 6 tecken.", es:"La contraseña debe tener al menos 6 caracteres.", de:"Das Passwort muss mindestens 6 Zeichen haben.", fr:"Le mot de passe doit contenir au moins 6 caractères."},
+  errPasswordMismatch:{en:"Passwords don't match.", sv:"Lösenorden stämmer inte överens.", es:"Las contraseñas no coinciden.", de:"Passwörter stimmen nicht überein.", fr:"Les mots de passe ne correspondent pas."},
+  errAccountExists:{en:"An account with that email/phone already exists — try logging in instead.", sv:"Det finns redan ett konto med den e-posten/telefonen — försök logga in istället.", es:"Ya existe una cuenta con ese correo/teléfono — intenta iniciar sesión.", de:"Es gibt bereits ein Konto mit dieser E-Mail/Telefonnummer — versuch dich anzumelden.", fr:"Un compte existe déjà avec cet e-mail/téléphone — essayez de vous connecter."},
+  errRequiredFields:{en:"Please fill in all fields.", sv:"Fyll i alla fält.", es:"Completa todos los campos.", de:"Bitte alle Felder ausfüllen.", fr:"Veuillez remplir tous les champs."},
+  errInvalidCredentials:{en:"No account matches that email/phone and password.", sv:"Inget konto matchar den e-posten/telefonen och lösenordet.", es:"Ninguna cuenta coincide con ese correo/teléfono y contraseña.", de:"Kein Konto passt zu dieser E-Mail/Telefonnummer und diesem Passwort.", fr:"Aucun compte ne correspond à cet e-mail/téléphone et ce mot de passe."},
+  checkContactToConfirm:{en:"Check your email/phone to confirm your account, then log in.", sv:"Kolla din e-post/telefon för att bekräfta kontot, logga sedan in.", es:"Revisa tu correo/teléfono para confirmar la cuenta y luego inicia sesión.", de:"Bestätige dein Konto per E-Mail/Telefon und melde dich dann an.", fr:"Confirmez votre compte via l'e-mail/téléphone reçu, puis connectez-vous."}
+};
+let lang = 'en';
+function t(k){ return (STR[k] && STR[k][lang]) || (STR[k] && STR[k].en) || k; }
+
+/* ================= Countries ================= */
+const COUNTRIES = ["Argentina","Australia","Austria","Bangladesh","Belgium","Brazil","Bulgaria","Canada","Chile","China","Colombia","Croatia","Czechia","Denmark","Egypt","Estonia","Finland","France","Germany","Greece","Hungary","Iceland","India","Indonesia","Ireland","Israel","Italy","Japan","Latvia","Lithuania","Malaysia","Mexico","Netherlands","New Zealand","Nigeria","Norway","Pakistan","Philippines","Poland","Portugal","Romania","Russia","Saudi Arabia","Serbia","Singapore","Slovakia","South Africa","South Korea","Spain","Sweden","Switzerland","Thailand","Turkey","Ukraine","United Arab Emirates","United Kingdom","United States","Vietnam"];
+
+function detectCountry(){
+  try{
+    const loc = navigator.language || 'en-US';
+    const region = (loc.split('-')[1] || 'US').toUpperCase();
+    const dn = new Intl.DisplayNames([navigator.language || 'en'], {type:'region'});
+    const name = dn.of(region);
+    return COUNTRIES.includes(name) ? name : 'Sweden';
+  }catch(e){ return 'Sweden'; }
+}
+function buildCountryOptions(selectEl, selected){
+  selectEl.innerHTML = COUNTRIES.map(c=>`<option value="${c}" ${c===selected?'selected':''}>${c}</option>`).join('');
+}
+function isSwedenCountry(country){ return (country||'').trim().toLowerCase() === 'sweden'; }
+
+/* ================= Exams ================= */
+const DRIVING_EXAM = { code:"DRV", accent:"#A85C2E", domain:"the theory portion of a driving licence test — road signs, right of way, and rules of the road",
+  subtopics:["a specific regulatory road sign","a specific warning road sign","right of way at intersections and roundabouts","speed limits and signs","alcohol and drug limits for drivers","stopping and braking distances","vehicle lights and equipment","pedestrians and cyclists","driving in rain, snow, or low visibility","overtaking rules"],
+  name:{en:"Driving Theory", sv:"Körkortsteori", es:"Examen de Conducir", de:"Führerschein-Theorie", fr:"Code de la route"},
+  desc:{en:"Signs, right of way & rules of the road", sv:"Skyltar och trafikregler", es:"Señales y normas de circulación", de:"Schilder und Verkehrsregeln", fr:"Panneaux et règles"} };
+
+const HSP_EXAM = { code:"HSP", accent:"#33507A", domain:"the Swedish university aptitude test (Högskoleprovet) — write the question itself in Swedish regardless of interface language",
+  subtopics:["XYZ (matematisk problemlösning)","NOG (kvantitativa resonemang)","KVA (kvantitativa jämförelser)","DTK (diagram, tabeller och kartor)","ORD (ordkunskap)","LÄS (läsförståelse)","MEK (meningskomplettering)"],
+  name:{en:"Högskoleprovet", sv:"Högskoleprovet", es:"Högskoleprovet", de:"Högskoleprovet", fr:"Högskoleprovet"},
+  desc:{en:"Swedish university aptitude test", sv:"Svenskt högskoleprov", es:"Prueba sueca", de:"Schwedischer Test", fr:"Test suédois"} };
+
+function buildCitizenshipExam(country){
+  return { code:"CIT", accent:"#2E5C8A", domain:`a civics and government knowledge test similar to ${country}'s national citizenship/naturalization exam`,
+    subtopics:["branches and structure of government","historical founding events","rights and responsibilities of citizens","the electoral process","national symbols","civics-relevant geography"],
+    name:{en:country+" Citizenship Test", sv:country+" – medborgarskapstest", es:"Examen de Ciudadanía – "+country, de:"Einbürgerungstest – "+country, fr:"Test de Citoyenneté – "+country},
+    desc:{en:"Government, history & civics", sv:"Statsskick och historia", es:"Gobierno e historia", de:"Regierung und Geschichte", fr:"Gouvernement et histoire"} };
+}
+let EXAMS = { driving: DRIVING_EXAM, second: HSP_EXAM };
+function refreshSecondExam(){
+  const country = (app.profile && app.profile.country) || 'Sweden';
+  EXAMS.second = isSwedenCountry(country) ? HSP_EXAM : buildCitizenshipExam(country);
+}
+
+const AVATARS = ['🙂','🦊','🐢','🦁','🐨','🦉','🐙','🐼','🦅','🐝'];
+const HEART_REGEN_MS = 30000; // demo: 30s per heart
+const STRUGGLE_MIN_TOTAL = 2;
+const STRUGGLE_MAX_ACCURACY = 0.5;
+
+/* ================= State + storage ================= */
+// This local cache still holds hearts/streak/topic-stats/friends/chat for
+// speed — only identity (profile) and purchase state (isPremium/examPass)
+// are pulled from Supabase on login (see loadUserIntoApp above). A fuller
+// server sync for the rest is the natural next step (see backend/README.md).
+function loadState(){ try{ const raw = localStorage.getItem('studlyState_v1'); if(raw) return JSON.parse(raw); }catch(e){} return null; }
+function saveState(){ try{ localStorage.setItem('studlyState_v1', JSON.stringify(app)); }catch(e){} }
+
+let app = loadState() || {
+  profile: null,
+  userId: null,
+  hearts: 3, maxHearts: 3, nextHeartAt: null,
+  isPremium: false,
+  examPass: null,
+  examPassExpiresAt: null,
+  streak: { count:0, lastDate:null },
+  stats: { correct:0, total:0 },
+  topicStats: {},
+  diagnostic: { yearMonth:null, count:0 },
+  friends: [
+    { id:'f1', name:'Maya', avatar:'🦊', streak:12 },
+    { id:'f2', name:'Leo', avatar:'🐢', streak:5 },
+    { id:'f3', name:'Ines', avatar:'🦁', streak:30 }
+  ],
+  chats: {}
+};
+if(!app.topicStats) app.topicStats = {};
+if(app.examPass === undefined) app.examPass = null;
+if(app.examPassExpiresAt === undefined) app.examPassExpiresAt = null;
+if(!app.diagnostic) app.diagnostic = { yearMonth:null, count:0 };
+if(app.userId === undefined) app.userId = null;
+refreshSecondExam();
+
+const DIAG_TOTAL = 15;
+const DIAG_TIME_SEC = 900; // 15 minutes
+function getYearMonth(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function ensureDiagnosticBucket(){
+  const ym = getYearMonth();
+  if(app.diagnostic.yearMonth !== ym){ app.diagnostic = { yearMonth: ym, count:0 }; saveState(); }
+}
+function hasActiveExamPass(examId){
+  if(!app.examPass) return false;
+  if(examId && app.examPass !== examId) return false;
+  if(app.examPassExpiresAt && Date.now() > app.examPassExpiresAt) return false;
+  return true;
+}
+function hasUnlimitedDiagnostics(){ return app.isPremium || hasActiveExamPass(); }
+function diagnosticsRemaining(){ ensureDiagnosticBucket(); return Math.max(0, 3 - app.diagnostic.count); }
+function useDiagnosticCredit(){ ensureDiagnosticBucket(); app.diagnostic.count++; saveState(); }
+
+const REPLIES = {
+  en:["Nice, keep it up!","You've got this 💪","Same, let's keep our streaks alive.","Good luck on the next one!","Let's both hit a new streak record."],
+  sv:["Snyggt, kör på!","Du fixar det 💪","Samma här, vi håller streaken igång.","Lycka till med nästa!","Vi slår nytt streak-rekord ihop."],
+  es:["¡Genial, sigue así!","¡Tú puedes! 💪","Igual aquí, mantengamos la racha.","¡Suerte con la siguiente!","Rompamos un récord de racha juntos."],
+  de:["Stark, weiter so!","Du schaffst das 💪","Gleich hier, Serie am Leben halten.","Viel Glück beim nächsten!","Lass uns einen neuen Rekord holen."],
+  fr:["Bien joué, continue !","Tu vas y arriver 💪","Pareil ici, on garde la série.","Bonne chance pour la suite !","On bat un record ensemble."]
+};
+
+/* ================= Helpers ================= */
+function replayAnim(el){ el.classList.remove('animate-in'); void el.offsetWidth; el.classList.add('animate-in'); }
+function hasUnlimitedHearts(examId){ return app.isPremium || hasActiveExamPass(examId); }
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+/* ================= Language menu ================= */
+const langBtn = document.getElementById('langBtn');
+const langMenu = document.getElementById('langMenu');
+const langLabel = document.getElementById('langLabel');
+function buildLangMenu(){
+  langMenu.innerHTML = Object.keys(LANGS).map(c=>`<button class="lang-opt ${c===lang?'active':''}" data-lang="${c}">${LANGS[c].name}</button>`).join('');
+  langMenu.querySelectorAll('.lang-opt').forEach(b=>{
+    b.addEventListener('click', ()=>{ lang=b.dataset.lang; langLabel.textContent=lang.toUpperCase(); langMenu.classList.remove('show'); applyTranslations(); buildLangMenu(); });
+  });
+}
+langBtn.addEventListener('click', ()=> langMenu.classList.toggle('show'));
+document.addEventListener('click', e=>{ if(!langBtn.contains(e.target) && !langMenu.contains(e.target)) langMenu.classList.remove('show'); });
+buildLangMenu();
+
+function applyTranslations(){
+  document.getElementById('authTabRegister').textContent = t('authRegisterTab');
+  document.getElementById('authTabLogin').textContent = t('authLoginTab');
+  document.getElementById('onbSub').textContent = t('onbSub');
+  document.getElementById('nameInput').placeholder = t('namePlaceholder');
+  document.getElementById('countryHint').textContent = t('countryHint');
+  document.getElementById('tabEmail').textContent = t('emailTab');
+  document.getElementById('tabPhone').textContent = t('phoneTab');
+  document.getElementById('contactHint').textContent = t('contactHint');
+  document.getElementById('passwordInput').placeholder = t('passwordPlaceholder');
+  document.getElementById('confirmPasswordInput').placeholder = t('confirmPasswordPlaceholder');
+  document.getElementById('onbStart').textContent = t('createAccount');
+  document.getElementById('loginSub').textContent = t('loginSub');
+  document.getElementById('loginTabEmail').textContent = t('emailTab');
+  document.getElementById('loginTabPhone').textContent = t('phoneTab');
+  document.getElementById('loginPasswordInput').placeholder = t('passwordPlaceholder');
+  document.getElementById('loginStart').textContent = t('logIn');
+  document.getElementById('logoutBtn').textContent = t('logOut');
+  document.getElementById('heroTitle').textContent = t('heroTitle');
+  document.getElementById('heroSub').textContent = t('heroSub');
+  document.getElementById('backBtn').textContent = t('back');
+  document.getElementById('tutorHeading').textContent = t('tutorHeading');
+  document.getElementById('tutorInput').placeholder = t('tutorPlaceholder');
+  document.getElementById('tutorSend').textContent = t('ask');
+  document.getElementById('navStudyLbl').textContent = t('navStudy');
+  document.getElementById('navFriendsLbl').textContent = t('navFriends');
+  document.getElementById('navChatLbl').textContent = t('navChat');
+  document.getElementById('navProfileLbl').textContent = t('navProfile');
+  document.getElementById('friendsTitle').textContent = t('friendsTitle');
+  document.getElementById('friendsSub').textContent = t('friendsSub');
+  document.getElementById('addFriendInput').placeholder = t('addFriendPlaceholder');
+  document.getElementById('addFriendBtn').textContent = t('addBtn');
+  document.getElementById('chatTitle').textContent = t('chatTitle');
+  document.getElementById('chatSub').textContent = t('chatSub');
+  document.getElementById('chatInput').placeholder = t('chatInputPlaceholder');
+  document.getElementById('profileTitle').textContent = t('profileTitle');
+  document.getElementById('lblStreak').textContent = t('lblStreak');
+  document.getElementById('lblCorrect').textContent = t('lblCorrect');
+  document.getElementById('lblTotal').textContent = t('lblTotal');
+  document.getElementById('editProfileBtn').textContent = t('editProfile');
+  document.getElementById('footnote').textContent = t('footnote');
+  document.getElementById('aiBannerHeroText').textContent = t('aiBannerHero');
+  document.getElementById('aiBannerQuizText').textContent = t('aiBannerQuiz');
+  document.getElementById('tosLine').innerHTML = t('tosLine');
+  document.getElementById('tosProfileLink').textContent = t('tosProfileLink');
+  document.getElementById('privacyProfileLink').textContent = t('privacyProfileLink');
+  document.getElementById('premTitle').textContent = t('premTitle');
+  document.getElementById('premSub').textContent = t('premSub');
+  document.getElementById('premPrice').textContent = t('premPrice');
+  document.getElementById('perk1').textContent = t('perk1');
+  document.getElementById('perk2').textContent = t('perk2');
+  document.getElementById('perk3').textContent = t('perk3');
+  document.getElementById('premCta').textContent = t('premCta');
+  document.getElementById('premPayBtn').textContent = t('payNowBtn');
+  document.getElementById('demoNote').textContent = t('demoNote');
+  document.getElementById('premClose').textContent = t('close');
+  document.getElementById('passTitle').textContent = t('passTitle');
+  document.getElementById('passSub').textContent = t('passSub');
+  document.getElementById('passPrice').textContent = t('passPrice');
+  document.getElementById('passChooseLabel').textContent = t('passChoose');
+  document.getElementById('passCta').textContent = t('passCta');
+  document.getElementById('passPayBtn').textContent = t('payNowBtn');
+  document.getElementById('passDemoNote').textContent = t('demoNote');
+  document.getElementById('passClose').textContent = t('close');
+  document.getElementById('editTitle').textContent = t('editTitle');
+  document.getElementById('editNameInput').placeholder = t('namePlaceholder');
+  document.getElementById('editCountryHint').textContent = t('countryHint');
+  document.getElementById('editSaveBtn').textContent = t('save');
+  document.getElementById('editCloseBtn').textContent = t('close');
+  finishBtn.textContent = t('finish');
+  buildExamPassSelect();
+  refreshSecondExam();
+  renderExamList();
+  renderFriends();
+  renderChatList();
+  renderProfile();
+  renderHearts();
+}
+
+/* ================= Backend config ================= */
+// Fill these in once your own Supabase project + deployed API exist —
+// see backend/README.md. Nothing here works until you do.
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_PUBLIC_KEY';
+const API_BASE = 'https://your-app.vercel.app'; // wherever backend/api/*.js is deployed
+const STRIPE_PUBLISHABLE_KEY = 'pk_live_YOUR_PUBLISHABLE_KEY';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const stripe = window.Stripe ? window.Stripe(STRIPE_PUBLISHABLE_KEY) : null;
+
+async function getSession(){ const { data } = await sb.auth.getSession(); return data.session; }
+function showAuthError(el, msg){ el.textContent = msg; el.classList.remove('hidden'); }
+function hideAuthError(el){ el.classList.add('hidden'); }
+
+// Pull this user's profile + app_state from Supabase into the local `app`
+// object, which still doubles as the fast local cache the rest of the app
+// reads from (hearts/streak/topic-stats stay local-only for now — see
+// backend/README.md for what a full server-side sync would still need).
+async function loadUserIntoApp(session){
+  const userId = session.user.id;
+  app.userId = userId;
+  const [{ data: profileRow }, { data: stateRow }] = await Promise.all([
+    sb.from('profiles').select('*').eq('id', userId).single(),
+    sb.from('app_state').select('*').eq('user_id', userId).single(),
+  ]);
+  app.profile = {
+    name: profileRow?.name || 'Student',
+    avatar: profileRow?.avatar || '🙂',
+    country: profileRow?.country || 'Sweden',
+    contact: { type: profileRow?.contact_type || 'email', value: session.user.email || session.user.phone || '' },
+  };
+  if(stateRow){
+    app.isPremium = !!stateRow.is_premium;
+    app.examPass = stateRow.exam_pass || null;
+    app.examPassExpiresAt = stateRow.exam_pass_expires_at ? new Date(stateRow.exam_pass_expires_at).getTime() : null;
+  }
+  saveState();
+}
+
+/* ================= Onboarding: shared bits ================= */
+const avatarGrid = document.getElementById('avatarGrid');
+let pickedAvatar = AVATARS[0];
+avatarGrid.innerHTML = AVATARS.map(a=>`<button class="avatar-pick ${a===pickedAvatar?'sel':''}" data-a="${a}">${a}</button>`).join('');
+avatarGrid.querySelectorAll('.avatar-pick').forEach(b=>{
+  b.addEventListener('click', ()=>{ pickedAvatar=b.dataset.a; avatarGrid.querySelectorAll('.avatar-pick').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });
+});
+buildCountryOptions(document.getElementById('countryInput'), detectCountry());
+
+/* ---- Register/Login tab switch ---- */
+const registerPane = document.getElementById('registerPane');
+const loginPane = document.getElementById('loginPane');
+document.getElementById('authTabRegister').addEventListener('click', ()=>{
+  document.getElementById('authTabRegister').classList.add('sel');
+  document.getElementById('authTabLogin').classList.remove('sel');
+  registerPane.classList.remove('hidden'); loginPane.classList.add('hidden');
+});
+document.getElementById('authTabLogin').addEventListener('click', ()=>{
+  document.getElementById('authTabLogin').classList.add('sel');
+  document.getElementById('authTabRegister').classList.remove('sel');
+  loginPane.classList.remove('hidden'); registerPane.classList.add('hidden');
+});
+
+/* ---- Register contact type toggle ---- */
+let contactType = 'email';
+const contactInput = document.getElementById('contactInput');
+function setContactType(type){
+  contactType = type;
+  document.getElementById('tabEmail').classList.toggle('sel', type==='email');
+  document.getElementById('tabPhone').classList.toggle('sel', type==='phone');
+  contactInput.type = type==='email' ? 'email' : 'tel';
+  contactInput.placeholder = type==='email' ? t('emailPlaceholder') : t('phonePlaceholder');
+  contactInput.value = '';
+}
+document.getElementById('tabEmail').addEventListener('click', ()=> setContactType('email'));
+document.getElementById('tabPhone').addEventListener('click', ()=> setContactType('phone'));
+setContactType('email');
+
+/* ---- Login contact type toggle ---- */
+let loginContactType = 'email';
+const loginContactInput = document.getElementById('loginContactInput');
+function setLoginContactType(type){
+  loginContactType = type;
+  document.getElementById('loginTabEmail').classList.toggle('sel', type==='email');
+  document.getElementById('loginTabPhone').classList.toggle('sel', type==='phone');
+  loginContactInput.type = type==='email' ? 'email' : 'tel';
+  loginContactInput.placeholder = type==='email' ? t('emailPlaceholder') : t('phonePlaceholder');
+  loginContactInput.value = '';
+}
+document.getElementById('loginTabEmail').addEventListener('click', ()=> setLoginContactType('email'));
+document.getElementById('loginTabPhone').addEventListener('click', ()=> setLoginContactType('phone'));
+setLoginContactType('email');
+
+/* ---- Register submit (real Supabase account) ---- */
+const registerError = document.getElementById('registerError');
+document.getElementById('onbStart').addEventListener('click', async ()=>{
+  hideAuthError(registerError);
+  const name = document.getElementById('nameInput').value.trim();
+  const contact = contactInput.value.trim();
+  const country = document.getElementById('countryInput').value || 'Sweden';
+  const password = document.getElementById('passwordInput').value;
+  const confirmPassword = document.getElementById('confirmPasswordInput').value;
+  if(!name || !contact || !password || !confirmPassword){ showAuthError(registerError, t('errRequiredFields')); return; }
+  if(password.length < 6){ showAuthError(registerError, t('errPasswordLength')); return; }
+  if(password !== confirmPassword){ showAuthError(registerError, t('errPasswordMismatch')); return; }
+
+  const credentials = contactType === 'email' ? { email: contact, password } : { phone: contact, password };
+  const { data, error } = await sb.auth.signUp({ ...credentials, options: { data: { name } } });
+  if(error){ showAuthError(registerError, error.message); return; }
+  if(!data.session){
+    // Supabase's "Confirm email" setting is on — it already sent a verification
+    // link/code. Turn that setting off in Authentication > Providers while
+    // developing if you'd rather skip straight to a session on signup.
+    showAuthError(registerError, t('checkContactToConfirm'));
+    return;
+  }
+  await sb.from('profiles').update({ avatar: pickedAvatar, country, contact_type: contactType }).eq('id', data.user.id);
+  await loadUserIntoApp(data.session);
+  enterApp();
+});
+
+/* ---- Login submit (real Supabase account) ---- */
+const loginError = document.getElementById('loginError');
+document.getElementById('loginStart').addEventListener('click', async ()=>{
+  hideAuthError(loginError);
+  const contact = loginContactInput.value.trim();
+  const password = document.getElementById('loginPasswordInput').value;
+  if(!contact || !password){ showAuthError(loginError, t('errRequiredFields')); return; }
+
+  const credentials = loginContactType === 'email' ? { email: contact, password } : { phone: contact, password };
+  const { data, error } = await sb.auth.signInWithPassword(credentials);
+  if(error){ showAuthError(loginError, t('errInvalidCredentials')); return; }
+  await loadUserIntoApp(data.session);
+  enterApp();
+});
+
+/* ---- Logout ---- */
+document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+  clearDiagTimer();
+  await sb.auth.signOut();
+  app.profile = null;
+  app.userId = null;
+  saveState();
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('bottomNav').classList.add('hidden');
+  document.getElementById('onboardScreen').classList.remove('hidden');
+  document.getElementById('authTabLogin').click();
+});
+
+let heartsIntervalStarted = false;
+function enterApp(){
+  if(!app.profile.country) app.profile.country = 'Sweden';
+  refreshSecondExam();
+  document.getElementById('onboardScreen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('bottomNav').classList.remove('hidden');
+  document.getElementById('topAvatar').textContent = app.profile.avatar;
+  applyTranslations();
+  tickHearts();
+  if(!heartsIntervalStarted){ setInterval(tickHearts, 1000); heartsIntervalStarted = true; }
+}
+
+/* ================= Bottom nav ================= */
+const tabs = ['study','friends','chat','profile'];
+document.querySelectorAll('.navbtn').forEach(btn=>{
+  btn.addEventListener('click', ()=> showTab(btn.dataset.tab));
+});
+document.getElementById('topAvatar').addEventListener('click', ()=> showTab('profile'));
+const navGroup = document.getElementById('navGroup');
+const navToggleBtn = document.getElementById('navToggleBtn');
+let navCollapsed = false;
+navToggleBtn.addEventListener('click', ()=>{
+  navCollapsed = !navCollapsed;
+  navGroup.classList.toggle('collapsed', navCollapsed);
+  navToggleBtn.textContent = navCollapsed ? '›' : '‹';
+});
+function showTab(name){
+  tabs.forEach(tb=>{
+    document.getElementById('tab-'+tb).classList.toggle('show', tb===name);
+    document.getElementById('nav'+tb[0].toUpperCase()+tb.slice(1)+'Btn').classList.toggle('active', tb===name);
+  });
+  replayAnim(document.getElementById('tab-'+name));
+  renderHearts();
+}
+
+/* ================= Hearts + streak ================= */
+function currentHeartContext(){ return (!quizScreen.classList.contains('hidden')) ? quiz.examId : null; }
+function renderHearts(){
+  const ctx = currentHeartContext();
+  const pill = document.getElementById('heartsPill');
+  if(hasUnlimitedHearts(ctx)){ pill.innerHTML = '<span>∞</span>'; return; }
+  let html = '';
+  for(let i=0;i<app.maxHearts;i++){ html += `<span class="heart" data-i="${i}">${i<app.hearts?'❤️':'🤍'}</span>`; }
+  pill.innerHTML = html;
+}
+function loseHeart(examId){
+  if(hasUnlimitedHearts(examId)) return;
+  app.hearts = Math.max(0, app.hearts - 1);
+  if(app.hearts < app.maxHearts && !app.nextHeartAt) app.nextHeartAt = Date.now() + HEART_REGEN_MS;
+  saveState();
+  renderHearts();
+  const hearts = document.querySelectorAll('.heart');
+  if(hearts[app.hearts]) hearts[app.hearts].classList.add('hit');
+}
+function tickHearts(){
+  if(app.isPremium) return;
+  if(app.hearts < app.maxHearts && app.nextHeartAt && Date.now() >= app.nextHeartAt){
+    app.hearts += 1;
+    app.nextHeartAt = app.hearts < app.maxHearts ? Date.now() + HEART_REGEN_MS : null;
+    saveState();
+    renderHearts();
+  }
+  if(!quizScreen.classList.contains('hidden')){
+    const cd = document.getElementById('heartCountdown');
+    if(cd && app.nextHeartAt){
+      const rem = Math.max(0, app.nextHeartAt - Date.now());
+      const s = Math.ceil(rem/1000);
+      cd.textContent = Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+    }
+  }
+}
+function bumpStreak(){
+  const today = new Date().toDateString();
+  if(app.streak.lastDate === today) return;
+  const y = new Date(); y.setDate(y.getDate()-1);
+  if(app.streak.lastDate === y.toDateString()) app.streak.count += 1;
+  else app.streak.count = 1;
+  app.streak.lastDate = today;
+  saveState();
+  document.getElementById('streakNum').textContent = app.streak.count;
+  const icon = document.getElementById('streakIcon');
+  icon.classList.remove('bump'); void icon.offsetWidth; icon.classList.add('bump');
+}
+document.getElementById('streakNum').textContent = app.streak.count;
+
+/* ================= Shared payment helper ================= */
+// Calls the backend to create a PaymentIntent (one-time Exam Pass) or a
+// subscription's first PaymentIntent (Premium), then mounts Stripe's
+// Payment Element into the given container so card entry happens right
+// inside this app's own modal — no redirect to a Stripe-hosted page.
+async function beginEmbeddedPayment({ kind, examId, mountId, msgId }){
+  const msgEl = document.getElementById(msgId);
+  msgEl.classList.add('hidden');
+  const session = await getSession();
+  if(!session){ msgEl.textContent = t('payErrorGeneric'); msgEl.className='pay-msg err'; return null; }
+
+  const mount = document.getElementById(mountId);
+  mount.innerHTML = `<div class="pay-loading">${t('payPreparing')}</div>`;
+
+  try{
+    const res = await fetch(`${API_BASE}/api/create-payment-intent`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ kind, examId }),
+    });
+    const data = await res.json();
+    if(!res.ok || !data.clientSecret) throw new Error(data.error || 'no client secret');
+
+    const elements = stripe.elements({ clientSecret: data.clientSecret });
+    const paymentElement = elements.create('payment');
+    mount.innerHTML = '';
+    paymentElement.mount(`#${mountId}`);
+    return elements;
+  }catch(err){
+    mount.innerHTML = '';
+    msgEl.textContent = t('payErrorGeneric');
+    msgEl.className = 'pay-msg err';
+    msgEl.classList.remove('hidden');
+    return null;
+  }
+}
+
+async function confirmEmbeddedPayment({ elements, payBtnId, msgId, onSuccess }){
+  const payBtn = document.getElementById(payBtnId);
+  const msgEl = document.getElementById(msgId);
+  payBtn.disabled = true;
+  msgEl.textContent = t('payProcessing'); msgEl.className = 'pay-msg'; msgEl.classList.remove('hidden');
+
+  const { error, paymentIntent } = await stripe.confirmPayment({
+    elements,
+    confirmParams: { return_url: window.location.href },
+    redirect: 'if_required',
+  });
+
+  if(error){
+    msgEl.textContent = error.message || t('payErrorGeneric');
+    msgEl.className = 'pay-msg err';
+    payBtn.disabled = false;
+    return;
+  }
+
+  msgEl.textContent = t('paySucceeded');
+  msgEl.className = 'pay-msg ok';
+  // The webhook writes the actual entitlement to Supabase; give it a moment
+  // to land, then pull the fresh state back down.
+  await new Promise(r => setTimeout(r, 1500));
+  const session = await getSession();
+  if(session) await loadUserIntoApp(session);
+  renderHearts(); renderProfile();
+  onSuccess();
+}
+
+/* ================= Premium ================= */
+const premiumOverlay = document.getElementById('premiumOverlay');
+let premiumElements = null;
+function resetPremiumModal(){
+  premiumElements = null;
+  document.getElementById('premPayStep').classList.add('hidden');
+  document.getElementById('premPaymentElement').innerHTML = '';
+  document.getElementById('premPayMsg').classList.add('hidden');
+  document.getElementById('premPayBtn').disabled = false;
+  document.getElementById('premCta').classList.remove('hidden');
+}
+document.getElementById('goPremiumBtn').addEventListener('click', ()=>{ resetPremiumModal(); premiumOverlay.classList.add('show'); });
+document.getElementById('premClose').addEventListener('click', ()=> premiumOverlay.classList.remove('show'));
+document.getElementById('premCta').addEventListener('click', async ()=>{
+  document.getElementById('premCta').classList.add('hidden');
+  document.getElementById('premPayStep').classList.remove('hidden');
+  premiumElements = await beginEmbeddedPayment({ kind:'premium', mountId:'premPaymentElement', msgId:'premPayMsg' });
+});
+document.getElementById('premPayBtn').addEventListener('click', async ()=>{
+  if(!premiumElements) return;
+  await confirmEmbeddedPayment({
+    elements: premiumElements, payBtnId:'premPayBtn', msgId:'premPayMsg',
+    onSuccess: ()=> setTimeout(()=> premiumOverlay.classList.remove('show'), 900),
+  });
+});
+
+/* ================= Exam Pass ================= */
+const examPassOverlay = document.getElementById('examPassOverlay');
+let examPassElements = null;
+function buildExamPassSelect(){
+  const sel = document.getElementById('examPassSelect');
+  sel.innerHTML = Object.keys(EXAMS).map(id=>`<option value="${id}">${EXAMS[id].name[lang]||EXAMS[id].name.en}</option>`).join('');
+}
+function resetExamPassModal(){
+  examPassElements = null;
+  document.getElementById('passPayStep').classList.add('hidden');
+  document.getElementById('passPaymentElement').innerHTML = '';
+  document.getElementById('passPayMsg').classList.add('hidden');
+  document.getElementById('passPayBtn').disabled = false;
+  document.getElementById('passCta').classList.remove('hidden');
+  document.getElementById('examPassSelect').classList.remove('hidden');
+}
+function openExamPassOverlay(preselect){
+  buildExamPassSelect();
+  resetExamPassModal();
+  if(preselect) document.getElementById('examPassSelect').value = preselect;
+  examPassOverlay.classList.add('show');
+}
+document.getElementById('goExamPassBtn').addEventListener('click', ()=> openExamPassOverlay(app.examPass));
+document.getElementById('passClose').addEventListener('click', ()=> examPassOverlay.classList.remove('show'));
+document.getElementById('passCta').addEventListener('click', async ()=>{
+  const examId = document.getElementById('examPassSelect').value;
+  document.getElementById('passCta').classList.add('hidden');
+  document.getElementById('examPassSelect').classList.add('hidden');
+  document.getElementById('passPayStep').classList.remove('hidden');
+  examPassElements = await beginEmbeddedPayment({ kind:'exam_pass', examId, mountId:'passPaymentElement', msgId:'passPayMsg' });
+});
+document.getElementById('passPayBtn').addEventListener('click', async ()=>{
+  if(!examPassElements) return;
+  await confirmEmbeddedPayment({
+    elements: examPassElements, payBtnId:'passPayBtn', msgId:'passPayMsg',
+    onSuccess: ()=> setTimeout(()=> examPassOverlay.classList.remove('show'), 900),
+  });
+});
+
+/* ================= Edit profile ================= */
+const editOverlay = document.getElementById('editOverlay');
+document.getElementById('editProfileBtn').addEventListener('click', ()=>{
+  document.getElementById('editNameInput').value = app.profile.name;
+  buildCountryOptions(document.getElementById('editCountrySelect'), app.profile.country);
+  editOverlay.classList.add('show');
+});
+document.getElementById('editCloseBtn').addEventListener('click', ()=> editOverlay.classList.remove('show'));
+document.getElementById('editSaveBtn').addEventListener('click', ()=>{
+  const newName = document.getElementById('editNameInput').value.trim();
+  if(newName) app.profile.name = newName;
+  app.profile.country = document.getElementById('editCountrySelect').value;
+  saveState();
+  refreshSecondExam();
+  renderProfile(); renderExamList();
+  editOverlay.classList.remove('show');
+});
+
+/* ================= Exam list ================= */
+function renderExamList(){
+  const list = document.getElementById('examList');
+  const country = (app.profile && app.profile.country) || '';
+  list.innerHTML = Object.keys(EXAMS).map(id=>{
+    const e = EXAMS[id];
+    let desc = e.desc[lang]||e.desc.en;
+    if(country) desc += ' · ' + country;
+    return `<div class="exam" style="--e-accent:${e.accent}" data-id="${id}">
+      <span class="code">${e.code}</span>
+      <div class="etext"><div class="ename">${e.name[lang]||e.name.en}</div><div class="edesc">${desc}</div></div>
+      <span class="go">→</span>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.exam').forEach(el=> el.addEventListener('click', ()=> openExam(el.dataset.id)));
+}
+
+/* ================= Quiz state ================= */
+let quiz = { examId:null, score:{correct:0,total:0}, current:null, focused:null, mode:null, diag:null, sessionTopics:{} };
+let diagTimerHandle = null;
+const examScreen = document.getElementById('examScreen');
+const quizScreen = document.getElementById('quizScreen');
+const qBody = document.getElementById('qBody');
+const tally = document.getElementById('tally');
+const finishBtn = document.getElementById('finishBtn');
+const diagTimerPill = document.getElementById('diagTimerPill');
+
+document.getElementById('backBtn').addEventListener('click', ()=>{
+  clearDiagTimer();
+  quizScreen.classList.add('hidden'); examScreen.classList.remove('hidden'); replayAnim(examScreen); renderHearts();
+});
+finishBtn.addEventListener('click', ()=> finishSession(false));
+
+function clearDiagTimer(){ if(diagTimerHandle){ clearInterval(diagTimerHandle); diagTimerHandle=null; } diagTimerPill.classList.add('hidden'); }
+
+function openExam(id){
+  refreshSecondExam();
+  clearDiagTimer();
+  quiz = { examId:id, score:{correct:0,total:0}, current:null, focused:null, mode:null, diag:null, sessionTopics:{} };
+  document.documentElement.style.setProperty('--accent', EXAMS[id].accent);
+  document.getElementById('tutorLog').innerHTML = '';
+  examScreen.classList.add('hidden'); quizScreen.classList.remove('hidden'); replayAnim(quizScreen);
+  updateTally();
+  renderHearts();
+  finishBtn.classList.add('hidden');
+  renderModeSelect();
+}
+function updateTally(){ tally.textContent = quiz.score.correct + ' / ' + quiz.score.total; }
+
+function renderModeSelect(){
+  clearDiagTimer();
+  quiz.mode = null; quiz.diag = null; quiz.focused = null;
+  finishBtn.classList.add('hidden');
+  const exam = EXAMS[quiz.examId];
+  const unlimited = hasUnlimitedDiagnostics();
+  const remaining = diagnosticsRemaining();
+  const diagLocked = !unlimited && remaining<=0;
+  const diagBadge = unlimited ? t('diagUnlimitedLabel') : (remaining + ' ' + t('diagLeftSuffix'));
+  qBody.innerHTML = `
+    <div class="animate-in">
+      <span class="topic-tag">${escapeHtml(exam.name[lang]||exam.name.en)}</span>
+      <div class="question" style="margin-bottom:14px;">${t('modeTitle')}</div>
+      <button class="mode-card" id="modePracticeBtn">
+        <span class="m-ic">📖</span>
+        <span><span class="m-title">${t('practiceModeTitle')}</span><br><span class="m-desc">${t('practiceModeDesc')}</span></span>
+      </button>
+      <button class="mode-card ${diagLocked?'locked':''}" id="modeDiagBtn">
+        <span class="m-ic">⏱</span>
+        <span>
+          <span class="m-title">${t('diagModeTitle')}</span><br>
+          <span class="m-desc">${t('diagModeDesc')}</span><br>
+          <span class="m-badge">${diagLocked ? t('diagLockedNote') : diagBadge}</span>
+        </span>
+      </button>
+    </div>`;
+  document.getElementById('modePracticeBtn').addEventListener('click', renderTopicPick);
+  document.getElementById('modeDiagBtn').addEventListener('click', ()=> diagLocked ? openDiagUpsell() : startDiagnostic());
+}
+
+function renderTopicPick(){
+  const exam = EXAMS[quiz.examId];
+  const examples = exam.subtopics.slice(0, 6);
+  qBody.innerHTML = `
+    <div class="animate-in">
+      <span class="topic-tag">${escapeHtml(exam.name[lang]||exam.name.en)}</span>
+      <div class="question" style="margin-bottom:6px;">${t('topicPickTitle')}</div>
+      <p style="color:var(--ink-soft); font-size:13px; margin-bottom:14px;">${t('topicPickSub')}</p>
+      <div class="options">
+        ${examples.map((topic,i)=>`<button class="opt" data-topic-pick="${i}"><span class="letter">🎯</span><span>${escapeHtml(topic)}</span></button>`).join('')}
+        <button class="opt" id="topicPickNone" style="border-color:var(--accent);"><span class="letter">✨</span><span>${t('topicPickNone')}</span></button>
+      </div>
+    </div>`;
+  examples.forEach((topic,i)=>{
+    document.querySelector(`[data-topic-pick="${i}"]`).addEventListener('click', ()=>{
+      quiz.mode = 'practice'; quiz.diag = null;
+      finishBtn.classList.remove('hidden'); finishBtn.textContent = t('finish');
+      startFocused(topic);
+    });
+  });
+  document.getElementById('topicPickNone').addEventListener('click', startPractice);
+}
+
+function openDiagUpsell(){
+  premiumOverlay.classList.add('show');
+}
+
+function startPractice(){
+  quiz.mode = 'practice'; quiz.diag = null;
+  finishBtn.classList.remove('hidden'); finishBtn.textContent = t('finish');
+  if(!hasUnlimitedHearts(quiz.examId) && app.hearts <= 0){ renderLocked(); return; }
+  loadQuestion();
+}
+
+function startDiagnostic(){
+  if(!hasUnlimitedDiagnostics()){
+    if(diagnosticsRemaining()<=0){ openDiagUpsell(); return; }
+    useDiagnosticCredit();
+  }
+  quiz.mode = 'diagnostic';
+  quiz.diag = { index:0, total:DIAG_TOTAL, correct:0, endsAt: Date.now() + DIAG_TIME_SEC*1000 };
+  finishBtn.classList.remove('hidden'); finishBtn.textContent = t('finish');
+  diagTimerPill.classList.remove('hidden');
+  tickDiagTimer();
+  diagTimerHandle = setInterval(tickDiagTimer, 1000);
+  loadQuestion();
+}
+
+function tickDiagTimer(){
+  if(!quiz.diag) return;
+  const rem = Math.max(0, quiz.diag.endsAt - Date.now());
+  const s = Math.ceil(rem/1000);
+  diagTimerPill.innerHTML = '⏱ ' + Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+  if(rem<=0){ clearDiagTimer(); finishSession(true); }
+}
+
+function renderLocked(){
+  const rem = app.nextHeartAt ? Math.max(0, app.nextHeartAt - Date.now()) : 0;
+  const s = Math.ceil(rem/1000);
+  qBody.innerHTML = `
+    <div class="locked animate-in">
+      <div style="font-size:40px;">💔</div>
+      <h3>${t('lockedTitle')}</h3>
+      <p>${t('lockedSub')}</p>
+      <div class="countdown" id="heartCountdown">${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}</div>
+      <div class="locked-actions">
+        <button class="premium-btn" id="lockedPremBtn">${t('goPremium')}</button>
+        <button class="exam-pass-btn" id="lockedPassBtn">${t('getExamPass')}</button>
+      </div>
+    </div>`;
+  document.getElementById('lockedPremBtn').addEventListener('click', ()=>{ resetPremiumModal(); premiumOverlay.classList.add('show'); });
+  document.getElementById('lockedPassBtn').addEventListener('click', ()=> openExamPassOverlay(quiz.examId));
+}
+
+/* ================= Claude API ================= */
+async function callClaude(system, user){
+  const session = await getSession();
+  const response = await fetch(`${API_BASE}/api/claude-proxy`, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json", "Authorization": `Bearer ${session?.access_token || ''}` },
+    body: JSON.stringify({ max_tokens:1500, system, messages:[{role:"user", content:user}] })
+  });
+  if(!response.ok) throw new Error("API " + response.status);
+  const data = await response.json();
+  const tb = data.content.find(b=>b.type==="text");
+  if(!tb) throw new Error("no text");
+  return tb.text;
+}
+function stripFences(s){ return s.replace(/```json/gi,'').replace(/```/g,'').trim(); }
+function shuffleOptions(q){
+  if(!Array.isArray(q.options) || q.options.length !== 4) return;
+  const order = [0,1,2,3];
+  for(let i=order.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  const newOptions = order.map(i => q.options[i]);
+  const newCorrectIndex = order.indexOf(q.correctIndex);
+  q.options = newOptions;
+  q.correctIndex = newCorrectIndex;
+}
+function sanitizeSvg(svg){ if(typeof svg!=='string') return ''; const s=svg.trim(); if(!s.startsWith('<svg')) return ''; return s.replace(/<script[\s\S]*?<\/script>/gi,''); }
+
+async function loadQuestion(){
+  qBody.innerHTML = `<div class="loading animate-in">${t('loading')}<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>`;
+  const exam = EXAMS[quiz.examId];
+  const topicKey = quiz.focused ? quiz.focused.topic : exam.subtopics[Math.floor(Math.random()*exam.subtopics.length)];
+  const langName = LANGS[lang].full;
+  const country = (app.profile && app.profile.country) || 'Sweden';
+  const isSwedishSpecial = quiz.examId==='second' && isSwedenCountry(country);
+  const system = `You write a single multiple-choice practice question for ${exam.domain}. The subtopic is: "${topicKey}".
+Write the question, options, and explanation in ${langName}${isSwedishSpecial ? ' (except Högskoleprovet content, which must be in Swedish regardless)' : ''}.
+The learner is based in ${country}. Where the subject matter varies by country (driving rules and road signs, civics/government structure, national symbols), tailor the question specifically to ${country}. Where the exam is inherently tied to one specific country regardless of the learner's location (the Swedish Högskoleprovet), stay accurate to that exam's real country instead.
+Decide if this question needs a picture (a road sign, a hand/body position, a diagram, a symbol). If so set needsImage true and provide flat-style SVG in "svg": viewBox="0 0 260 260", basic shapes/paths/text only, no external refs/scripts, depicting exactly the referenced object, without giving away the answer via text unless that text is genuinely part of the real object.
+Never end the question text with a stray letter (like "A", "B", "C" or "D"), and never otherwise hint at the correct option's letter anywhere in the question or passage. The only exception: if the question is genuinely asking the learner to identify one of several items that are themselves labeled with letters in an accompanying picture or passage (e.g. "What does sign B mean?"), that label is real content and may stay — it just must not match the correct option's letter.
+Respond with ONLY a raw JSON object: {"topic":"short label","needsImage":true|false,"svg":"<svg ...>...</svg> or empty string","passage":"optional, empty string if none","question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"2-4 sentences"}
+Exactly 4 options, correctIndex 0-based.`;
+  try{
+    const raw = await callClaude(system, "Generate the question now.");
+    const parsed = JSON.parse(stripFences(raw));
+    parsed.subtopicKey = topicKey;
+    shuffleOptions(parsed);
+    quiz.current = parsed;
+    renderQuestion(parsed);
+  }catch(err){
+    qBody.innerHTML = `<div class="errbox animate-in">${t('errbox')}<br><button class="retry" id="retryBtn">${t('retry')}</button></div>`;
+    document.getElementById('retryBtn').addEventListener('click', loadQuestion);
+  }
+}
+
+function renderQuestion(q){
+  const letters=['A','B','C','D'];
+  const safeSvg = q.needsImage ? sanitizeSvg(q.svg) : '';
+  const focusTag = quiz.focused ? `<div class="focus-tag">🎯 ${t('focusedProgressLabel')} · ${quiz.focused.index+1}/${quiz.focused.total}</div>` : '';
+  const diagTag = quiz.diag ? `<div class="focus-tag">⏱ ${t('diagModeTitle')} · ${quiz.diag.index+1}/${quiz.diag.total}</div>` : '';
+  qBody.innerHTML = `
+    <div class="animate-in">
+    ${focusTag}
+    ${diagTag}
+    <span class="topic-tag">${escapeHtml(q.topic||'')}</span>
+    ${safeSvg ? `<div class="image-frame">${safeSvg}</div>` : ''}
+    <div class="question">${escapeHtml(q.question)}</div>
+    ${q.passage ? `<div class="passage">${escapeHtml(q.passage)}</div>` : ''}
+    <div class="options">${q.options.map((o,i)=>`<button class="opt" data-i="${i}"><span class="letter">${letters[i]}</span><span>${escapeHtml(o)}</span></button>`).join('')}</div>
+    <div class="margin-note" id="marginNote">
+      <div class="verdict" id="verdict"></div>
+      <div class="explain" id="explainText"></div>
+      <button class="next-btn" id="nextBtn">${t('next')}</button>
+    </div>
+    </div>`;
+  document.querySelectorAll('.opt').forEach(btn=> btn.addEventListener('click', ()=> selectAnswer(parseInt(btn.dataset.i))));
+}
+
+function getTopicStat(examId, topic){
+  if(!app.topicStats[examId]) app.topicStats[examId] = {};
+  if(!app.topicStats[examId][topic]) app.topicStats[examId][topic] = {correct:0,total:0,suggested:false};
+  return app.topicStats[examId][topic];
+}
+
+function maybeSuggestFocused(topic){
+  const ts = getTopicStat(quiz.examId, topic);
+  if(ts.total>=STRUGGLE_MIN_TOTAL && (ts.correct/ts.total)<=STRUGGLE_MAX_ACCURACY && !ts.suggested){
+    ts.suggested = true; saveState();
+    const note = document.getElementById('marginNote');
+    const box = document.createElement('div');
+    box.className = 'suggest-box animate-in';
+    box.innerHTML = `<div class="stitle">🎯 ${t('focusedTitle')}</div>
+      <div class="ssub">${t('focusedSub')} “${escapeHtml(topic)}”.</div>
+      <button class="next-btn" id="startFocusedBtn" style="margin-top:10px;">${t('focusedStart')}</button>`;
+    note.appendChild(box);
+    document.getElementById('startFocusedBtn').addEventListener('click', ()=>{
+      ts.correct = 0; ts.total = 0; ts.suggested = false; saveState();
+      startFocused(topic);
+    });
+  }
+}
+
+function startFocused(topic){
+  quiz.focused = { topic, index:0, total:8, correct:0 };
+  if(!hasUnlimitedHearts(quiz.examId) && app.hearts<=0){ renderLocked(); return; }
+  loadQuestion();
+}
+
+function renderFocusedComplete(){
+  const done = quiz.focused;
+  qBody.innerHTML = `<div class="animate-in" style="text-align:center; padding:20px 6px;">
+    <div style="font-size:36px;">🎯</div>
+    <h3>${t('focusedDoneTitle')}</h3>
+    <p style="color:var(--ink-soft); font-size:14px; margin-top:6px;">${done.correct} / ${done.total} — ${escapeHtml(done.topic)}</p>
+    <button class="next-btn" id="focusedContinueBtn" style="margin-top:16px;">${t('focusedContinue')}</button>
+  </div>`;
+  quiz.focused = null;
+  document.getElementById('focusedContinueBtn').addEventListener('click', loadQuestion);
+}
+
+/* ================= Sound + haptics ================= */
+let audioCtx = null;
+function getAudioCtx(){
+  if(!audioCtx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(AC) audioCtx = new AC();
+  }
+  if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function playTone(freq, duration, delay, type, gainVal){
+  const ctx = getAudioCtx();
+  if(!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.value = freq;
+  const startTime = ctx.currentTime + (delay || 0);
+  gain.gain.setValueAtTime(gainVal || 0.15, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.02);
+}
+function playCorrectSound(){
+  try{ playTone(880, 0.11, 0, 'sine', 0.14); playTone(1318.5, 0.16, 0.09, 'sine', 0.14); }catch(e){}
+}
+function playWrongSound(){
+  try{ playTone(220, 0.16, 0, 'sawtooth', 0.10); playTone(160, 0.2, 0.1, 'sawtooth', 0.10); }catch(e){}
+}
+function vibrate(pattern){
+  try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
+}
+function playAnswerFeedback(isRight){
+  if(isRight){ playCorrectSound(); vibrate(35); }
+  else { playWrongSound(); vibrate([40,60,40]); }
+}
+
+function selectAnswer(i){
+  const q = quiz.current;
+  const opts = document.querySelectorAll('.opt');
+  opts.forEach(o=> o.disabled=true);
+  const isRight = i===q.correctIndex;
+  opts[i].classList.add(isRight?'correct':'wrong');
+  if(!isRight) opts[q.correctIndex].classList.add('correct');
+  playAnswerFeedback(isRight);
+
+  quiz.score.total++; if(isRight) quiz.score.correct++;
+  updateTally();
+  app.stats.total++; if(isRight) app.stats.correct++;
+  bumpStreak();
+
+  const topicName = q.subtopicKey || q.topic || 'general';
+  const ts = getTopicStat(quiz.examId, topicName);
+  ts.total++; if(isRight) ts.correct++;
+
+  if(!quiz.sessionTopics[topicName]) quiz.sessionTopics[topicName] = {correct:0,total:0};
+  quiz.sessionTopics[topicName].total++; if(isRight) quiz.sessionTopics[topicName].correct++;
+
+  if(quiz.focused){ quiz.focused.index++; if(isRight) quiz.focused.correct++; }
+  if(quiz.diag){ quiz.diag.index++; if(isRight) quiz.diag.correct++; }
+  if(!isRight && quiz.mode!=='diagnostic') loseHeart(quiz.examId);
+  saveState();
+
+  document.getElementById('verdict').textContent = isRight ? t('correct') : t('wrong');
+  document.getElementById('verdict').className = 'verdict ' + (isRight?'right':'wrong');
+  document.getElementById('explainText').textContent = q.explanation;
+  document.getElementById('marginNote').classList.add('show');
+  document.getElementById('nextBtn').addEventListener('click', ()=>{
+    if(quiz.mode==='diagnostic'){
+      if(quiz.diag.index>=quiz.diag.total){ clearDiagTimer(); finishSession(true); return; }
+      loadQuestion();
+      return;
+    }
+    if(!hasUnlimitedHearts(quiz.examId) && app.hearts<=0){ renderLocked(); return; }
+    if(quiz.focused && quiz.focused.index>=quiz.focused.total){ renderFocusedComplete(); return; }
+    loadQuestion();
+  });
+
+  if(quiz.mode==='practice' && !quiz.focused) maybeSuggestFocused(topicName);
+}
+
+function finishSession(wasDiagnostic){
+  clearDiagTimer();
+  finishBtn.classList.add('hidden');
+  const entries = Object.keys(quiz.sessionTopics).map(topic=>({ topic, ...quiz.sessionTopics[topic] }));
+  const good = entries.filter(e=> e.total>0 && (e.correct/e.total) >= 0.7).sort((a,b)=> (b.correct/b.total)-(a.correct/a.total));
+  const weak = entries.filter(e=> e.total>0 && (e.correct/e.total) < 0.7).sort((a,b)=> (a.correct/a.total)-(b.correct/b.total));
+
+  const titleText = wasDiagnostic ? t('diagSummaryTitle') : t('summaryTitle');
+  const timeUpNote = (wasDiagnostic && quiz.diag && quiz.diag.index < quiz.diag.total) ? `<p style="color:var(--red); font-size:12.5px; margin-top:4px;">${t('timeUp')}</p>` : '';
+
+  let html = `<div class="animate-in">
+    <div class="question" style="margin-bottom:2px;">${escapeHtml(titleText)}</div>
+    ${timeUpNote}
+    <div class="summary-score">
+      <div class="num">${quiz.score.correct} / ${quiz.score.total}</div>
+      <div class="lbl">${t('scoreLabel')}</div>
+    </div>`;
+
+  if(entries.length === 0){
+    html += `<p class="summary-empty">${t('notEnoughData')}</p>`;
+  } else {
+    if(good.length){
+      html += `<div class="summary-section-title">✅ ${t('goodAt')}</div>`;
+      good.forEach(e=>{
+        html += `<div class="topic-row"><span class="tr-name">${escapeHtml(e.topic)}</span><span class="tr-frac">${e.correct}/${e.total}</span></div>`;
+      });
+    }
+    if(weak.length){
+      html += `<div class="summary-section-title">🎯 ${t('needsPractice')}</div>`;
+      weak.forEach((e,idx)=>{
+        html += `<div class="topic-row"><span class="tr-name">${escapeHtml(e.topic)}</span><span class="tr-frac">${e.correct}/${e.total}</span><button class="tr-btn" data-topic-idx="${idx}">${t('practiceThisBtn')}</button></div>`;
+      });
+    }
+  }
+  html += `<button class="next-btn" id="summaryMoreBtn" style="margin-top:18px;">${t('moreQuestions')}</button></div>`;
+  qBody.innerHTML = html;
+
+  weak.forEach((e,idx)=>{
+    const btn = qBody.querySelector(`[data-topic-idx="${idx}"]`);
+    if(btn) btn.addEventListener('click', ()=>{
+      quiz.mode = 'practice'; quiz.diag = null;
+      finishBtn.classList.remove('hidden'); finishBtn.textContent = t('finish');
+      startFocused(e.topic);
+    });
+  });
+  document.getElementById('summaryMoreBtn').addEventListener('click', renderModeSelect);
+}
+
+/* ================= Tutor chat (study) ================= */
+const tutorInput = document.getElementById('tutorInput');
+const tutorSend = document.getElementById('tutorSend');
+const tutorLog = document.getElementById('tutorLog');
+async function askTutor(){
+  const q = tutorInput.value.trim(); if(!q) return;
+  tutorInput.value=''; tutorSend.disabled=true;
+  const exam = EXAMS[quiz.examId] || EXAMS.driving;
+  const qDiv=document.createElement('div'); qDiv.className='tlog-q animate-in'; qDiv.textContent=q; tutorLog.appendChild(qDiv);
+  const aDiv=document.createElement('div'); aDiv.className='tlog-a animate-in'; aDiv.textContent=t('thinking'); tutorLog.appendChild(aDiv);
+  try{
+    const system = `You are a concise, encouraging study tutor helping someone prepare for ${exam.domain}. Answer directly in 2-5 sentences, in ${LANGS[lang].full}.`;
+    aDiv.textContent = await callClaude(system, q);
+  }catch(e){ aDiv.textContent = t('tutorErr'); }
+  finally{ tutorSend.disabled=false; }
+}
+tutorSend.addEventListener('click', askTutor);
+tutorInput.addEventListener('keydown', e=>{ if(e.key==='Enter') askTutor(); });
+
+/* ================= Friends ================= */
+function renderFriends(){
+  const list = document.getElementById('friendList');
+  list.innerHTML = app.friends.map(f=>`
+    <div class="friend-row" data-id="${f.id}">
+      <div class="f-avatar">${f.avatar}</div>
+      <div class="f-info"><div class="f-name">${escapeHtml(f.name)}</div><div class="f-streak">🔥 ${f.streak} ${t('streakDaysLabel')}</div></div>
+    </div>`).join('');
+  list.querySelectorAll('.friend-row').forEach(el=> el.addEventListener('click', ()=> openFriendProfile(el.dataset.id)));
+}
+document.getElementById('addFriendBtn').addEventListener('click', ()=>{
+  const input = document.getElementById('addFriendInput');
+  const name = input.value.trim(); if(!name) return;
+  const id = 'f'+Date.now();
+  app.friends.push({ id, name, avatar: AVATARS[Math.floor(Math.random()*AVATARS.length)], streak: Math.floor(Math.random()*8) });
+  input.value=''; saveState(); renderFriends(); replayAnim(document.getElementById('friendList'));
+});
+const friendOverlay = document.getElementById('friendOverlay');
+function openFriendProfile(id){
+  const f = app.friends.find(x=>x.id===id); if(!f) return;
+  document.getElementById('friendModalBody').innerHTML = `
+    <div style="text-align:center;">
+      <div class="f-avatar" style="width:60px;height:60px;font-size:26px;margin:0 auto 10px;">${f.avatar}</div>
+      <div class="p-name">${escapeHtml(f.name)}</div>
+      <div class="f-streak" style="margin-top:6px;">🔥 ${f.streak} ${t('streakDaysLabel')}</div>
+      <button class="primary-btn" id="msgFriendBtn" style="margin-top:18px;">${t('message')}</button>
+      <button class="modal-close" id="friendModalClose">${t('close')}</button>
+    </div>`;
+  document.getElementById('msgFriendBtn').addEventListener('click', ()=>{ friendOverlay.classList.remove('show'); openThread(f.id); showTab('chat'); });
+  document.getElementById('friendModalClose').addEventListener('click', ()=> friendOverlay.classList.remove('show'));
+  friendOverlay.classList.add('show');
+}
+
+/* ================= Chat ================= */
+function renderChatList(){
+  const list = document.getElementById('chatList');
+  list.innerHTML = app.friends.map(f=>{
+    const thread = app.chats[f.id] || [];
+    const last = thread.length ? thread[thread.length-1].text : t('chatEmpty');
+    return `<div class="chat-list-item" data-id="${f.id}">
+      <div class="f-avatar">${f.avatar}</div>
+      <div class="f-info"><div class="f-name">${escapeHtml(f.name)}</div><div class="chat-preview">${escapeHtml(last)}</div></div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.chat-list-item').forEach(el=> el.addEventListener('click', ()=> openThread(el.dataset.id)));
+}
+let activeThread = null;
+function openThread(id){
+  activeThread = id;
+  const f = app.friends.find(x=>x.id===id);
+  document.getElementById('chatListView').classList.add('hidden');
+  document.getElementById('chatThreadView').classList.remove('hidden');
+  replayAnim(document.getElementById('chatThreadView'));
+  document.getElementById('threadAvatar').textContent = f.avatar;
+  document.getElementById('threadName').textContent = f.name;
+  renderBubbles();
+}
+document.getElementById('threadBack').addEventListener('click', ()=>{
+  document.getElementById('chatThreadView').classList.add('hidden');
+  document.getElementById('chatListView').classList.remove('hidden');
+  replayAnim(document.getElementById('chatListView'));
+  renderChatList();
+});
+function renderBubbles(){
+  const thread = app.chats[activeThread] || [];
+  const el = document.getElementById('bubbles');
+  el.innerHTML = thread.map(m=>`<div class="bubble ${m.from==='me'?'me':'them'} pop">${escapeHtml(m.text)}</div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+document.getElementById('chatSend').addEventListener('click', sendChat);
+document.getElementById('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter') sendChat(); });
+function sendChat(){
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim(); if(!text || !activeThread) return;
+  input.value='';
+  if(!app.chats[activeThread]) app.chats[activeThread]=[];
+  app.chats[activeThread].push({from:'me', text});
+  renderBubbles(); saveState();
+  const el = document.getElementById('bubbles');
+  const typing = document.createElement('div'); typing.className='bubble them typing pop'; typing.textContent='…';
+  el.appendChild(typing); el.scrollTop = el.scrollHeight;
+  setTimeout(()=>{
+    typing.remove();
+    const pool = REPLIES[lang] || REPLIES.en;
+    const reply = pool[Math.floor(Math.random()*pool.length)];
+    app.chats[activeThread].push({from:'them', text:reply});
+    renderBubbles(); saveState();
+  }, 700 + Math.random()*500);
+}
+
+/* ================= Profile ================= */
+function renderProfile(){
+  if(!app.profile) return;
+  document.getElementById('profAvatar').textContent = app.profile.avatar;
+  document.getElementById('profName').textContent = app.profile.name;
+  document.getElementById('profMeta').textContent = app.profile.country + (app.profile.contact ? ' · ' + app.profile.contact.value : '');
+  document.getElementById('statStreak').textContent = app.streak.count;
+  document.getElementById('statCorrect').textContent = app.stats.correct;
+  document.getElementById('statTotal').textContent = app.stats.total;
+
+  const profBadge = document.getElementById('profBadge');
+  const passBadge = document.getElementById('passBadge');
+  const goPremiumBtn = document.getElementById('goPremiumBtn');
+  const goExamPassBtn = document.getElementById('goExamPassBtn');
+
+  profBadge.classList.toggle('hidden', !app.isPremium);
+  profBadge.textContent = t('premiumActiveBadge');
+  goPremiumBtn.classList.toggle('hidden', app.isPremium);
+  goPremiumBtn.textContent = t('goPremium');
+
+  if(app.isPremium){
+    passBadge.classList.add('hidden');
+    goExamPassBtn.classList.add('hidden');
+  } else {
+    const passActive = hasActiveExamPass();
+    passBadge.classList.toggle('hidden', !passActive);
+    if(passActive && EXAMS[app.examPass]){
+      const daysLeft = Math.max(0, Math.ceil((app.examPassExpiresAt - Date.now()) / 86400000));
+      passBadge.textContent = t('passActiveBadge') + ': ' + EXAMS[app.examPass].code + ' · ' + daysLeft + ' ' + t('daysLeftLabel');
+    }
+    goExamPassBtn.classList.remove('hidden');
+    goExamPassBtn.textContent = t('getExamPass') + (passActive && EXAMS[app.examPass] ? ' (' + EXAMS[app.examPass].code + ')' : '');
+  }
+}
+
+/* ================= Boot ================= */
+async function boot(){
+  let session = null;
+  try{ session = await getSession(); }catch(e){ session = null; }
+  if(session){
+    try{
+      await loadUserIntoApp(session);
+      enterApp();
+      return;
+    }catch(e){
+      // Session existed but we couldn't load profile/app_state (e.g. backend
+      // not reachable yet) — fall through to the auth screen rather than
+      // showing a half-loaded app.
+    }
+  }
+  applyTranslations();
+}
+boot();
+</script>
+</body>
+</html>
